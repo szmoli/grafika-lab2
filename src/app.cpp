@@ -8,10 +8,10 @@ const char * vertSource = R"(
 	#version 330				
     precision highp float;
 
-	layout(location = 0) in vec2 cP;	// 0. bemeneti regiszter
+	layout(location = 0) in vec3 cP;	// 0. bemeneti regiszter
 
 	void main() {
-		gl_Position = vec4(cP.x, cP.y, 0, 1); 	// bemenet m�r normaliz�lt eszk�zkoordin�t�kban
+		gl_Position = vec4(cP.x, cP.y, cP.z, 1); 	// bemenet m�r normaliz�lt eszk�zkoordin�t�kban
 	}
 )";
 
@@ -31,15 +31,15 @@ const char * fragSource = R"(
 const int winWidth = 600, winHeight = 600;
 
 class GreenTriangleApp : public glApp {
-	Geometry<vec2>* triangle;  // geometria
+	Geometry<vec3>* triangle;  // geometria
 	GPUProgram* gpuProgram;	   // cs�cspont �s pixel �rnyal�k
 public:
 	GreenTriangleApp() : glApp("Green triangle") { }
 
 	// Inicializ�ci�, 
 	void onInitialization() {
-		triangle = new Geometry<vec2>;
-		triangle->Vtx() = { vec2(-0.8f, -0.8f), vec2(-0.6f, 1.0f), vec2(0.8f, -0.2f) };
+		triangle = new Geometry<vec3>;
+		triangle->Vtx() = { vec3(-0.8f, -0.8f, 1.0f), vec3(-0.6f, 1.0f, 1.0f), vec3(0.8f, -0.2f, 1.0f) };
 		triangle->updateGPU();
 		gpuProgram = new GPUProgram(vertSource, fragSource);
 	}
