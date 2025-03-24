@@ -10,10 +10,11 @@ const char * vertSource = R"(
 	#version 330				
     precision highp float;
 
+	uniform mat4 MVP;
 	layout(location = 0) in vec3 cP;	// 0. bemeneti regiszter
 
 	void main() {
-		gl_Position = vec4(cP.x, cP.y, cP.z, 1); 	// bemenet m�r normaliz�lt eszk�zkoordin�t�kban
+		gl_Position = MVP * vec4(cP.x, cP.y, cP.z, 1); 	// bemenet m�r normaliz�lt eszk�zkoordin�t�kban
 	}
 )";
 
