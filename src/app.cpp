@@ -46,67 +46,65 @@ public:
 		this->wWidth = wWidth;
 		this->wHeight = wHeight;
 	}
-
-	/**
-	 * Kiszámítja a model transzformációs mátrixot a kamera tulajdonságaiból.
-	 */
-	mat4 model() {
-
-	}
-
-	/**
-	 * Kiszámítja a model transzformációs mátrix inverzét a kamera tulajdonságaiból.
-	 */
-	mat4 invModel() {
-
-	}
 	
 	/**
 	 * Kiszámítja a view transzformációs mátrixot a kamera tulajdonságaiból.
+	 * @return mat4 View mátrix
 	 */
 	mat4 view() {
-		return mat4 {
-			vec4(1.0f, 0.0f, 0.0f, -wCenter.x),
-			vec4(0.0f, 1.0f, 0.0f, -wCenter.y),
-			vec4(0.0f, 0.0f, 1.0f, 0.0f),
-			vec4(0.0f, 0.0f, 0.0f, 1.0f)
-		};
+		// return mat4 {
+		// 	vec4(1.0f, 0.0f, 0.0f, -wCenter.x),
+		// 	vec4(0.0f, 1.0f, 0.0f, -wCenter.y),
+		// 	vec4(0.0f, 0.0f, 1.0f, 0.0f),
+		// 	vec4(0.0f, 0.0f, 0.0f, 1.0f)
+		// };
+
+		return translate(vec3(-wCenter.x, -wCenter.y, 0.0f));
 	}
 
 	/**
 	 * Kiszámítja a view transzformációs mátrix inverzét a kamera tulajdonságaiból.
+	 * @return mat4 View mátrix inverze
 	 */
 	mat4 invView() {
-		return mat4 {
-			vec4(1.0f, 0.0f, 0.0f, wCenter.x),
-			vec4(0.0f, 1.0f, 0.0f, wCenter.y),
-			vec4(0.0f, 0.0f, 1.0f, 0.0f),
-			vec4(0.0f, 0.0f, 0.0f, 1.0f)
-		};
+		// return mat4 {
+		// 	vec4(1.0f, 0.0f, 0.0f, wCenter.x),
+		// 	vec4(0.0f, 1.0f, 0.0f, wCenter.y),
+		// 	vec4(0.0f, 0.0f, 1.0f, 0.0f),
+		// 	vec4(0.0f, 0.0f, 0.0f, 1.0f)
+		// };
+
+		return translate(vec3(wCenter.x, wCenter.y, 0));
 	}
 
 	/**
 	 * Kiszámítja a projection transzformációs mátrixot a kamera tulajdonságaiból.
+	 * @return mat4 Projection mátrix
 	 */
 	mat4 projection() {
-		return mat4 {
-			vec4((2.0f / wWidth),	0.0f, 				0.0f, 0.0f),
-			vec4(0.0f,				(2.0f / wHeight),	0.0f, 0.0f),
-			vec4(0.0f, 				0.0f, 				1.0f, 0.0f),
-			vec4(0.0f, 				0.0f, 				0.0f, 1.0f)
-		};
+		// return mat4 {
+		// 	vec4((2.0f / wWidth),	0.0f, 				0.0f, 0.0f),
+		// 	vec4(0.0f,				(2.0f / wHeight),	0.0f, 0.0f),
+		// 	vec4(0.0f, 				0.0f, 				1.0f, 0.0f),
+		// 	vec4(0.0f, 				0.0f, 				0.0f, 1.0f)
+		// };
+	
+		return scale(vec3(2.0f / wWidth, 2.0f / wHeight, 1));
 	}
 
 	/**
 	 * Kiszámítja a projection transzformációs mátrix inverzét a kamera tulajdonságaiból.
+	 * @return mat4 Projection mátrix inverze
 	 */
 	mat4 invProjection() {
-		return mat4 {
-			vec4((wWidth / 2.0f),	0.0f, 				0.0f, 0.0f),
-			vec4(0.0f,				(wHeight / 2.0f),	0.0f, 0.0f),
-			vec4(0.0f, 				0.0f, 				1.0f, 0.0f),
-			vec4(0.0f, 				0.0f, 				0.0f, 1.0f)
-		};
+		// return mat4 {
+		// 	vec4((wWidth / 2.0f),	0.0f, 				0.0f, 0.0f),
+		// 	vec4(0.0f,				(wHeight / 2.0f),	0.0f, 0.0f),
+		// 	vec4(0.0f, 				0.0f, 				1.0f, 0.0f),
+		// 	vec4(0.0f, 				0.0f, 				0.0f, 1.0f)
+		// };
+
+		return scale(vec3(wWidth / 2.0f, wHeight / 2.0f, 1));
 	}
 
 private:	
@@ -145,6 +143,7 @@ public:
 	 * Megadja a t paraméterhez tartozó pont helyvektorát világ koordinátákban.
 	 * 
 	 * @param t Szabad paramáter.
+	 * @return vec3 t paraméterhez tartozó pont helyvektora világ koordinátákban.
 	 */
 	vec3 wR(float t) {
 
@@ -160,6 +159,8 @@ public:
 
 	/**
 	 * Kirajzolja a GPU-n tárolt állapotot.
+	 * 
+	 * @param gpuProgram Shader program, amin beállítja a szín uniformot.
 	 */
 	void draw(GPUProgram* gpuProgram) {
 		gpuProgram->setUniform(vec3(0.0f, 1.0f, 1.0f), "color"); // yellow
@@ -191,10 +192,12 @@ private:
 	 * 
 	 * @param p0 Első kontroll pont.
 	 * @param v0 Sebességvektor az első kontrollpontban.
-	 * @param t0 T paraméter az első kontrollponthoz.
+	 * @param t0 t0 paraméter az első kontrollponthoz.
 	 * @param p1 Második kontroll pont.
 	 * @param v1 Sebességvektor az második kontrollpontban.
-	 * @param t1 T paraméter az második kontrollponthoz.
+	 * @param t1 t1 paraméter az második kontrollponthoz.
+	 * @param t  t paraméter, amihez tartozó pontot adja vissza
+	 * @return vec3 A t paraméterhez tartozó pont helyvektora világ koordinátákban. 
 	 */
 	vec3 wHermite(vec3 p0, vec3 v0, vec3 t0, vec3 p1, vec3 v1, vec3 t1, float t) {
 		// r(t)		= a_3 * (t - t_i)^3 + a_2 * (t - t_i)^2 + a_1 * (t - t_i) + a_0
@@ -225,26 +228,48 @@ private:
 const int winWidth = 600, winHeight = 600;
 
 class GreenTriangleApp : public glApp {
-	Geometry<vec3>* triangle;  // geometria
-	GPUProgram* gpuProgram;	   // cs�cspont �s pixel �rnyal�k
+	GPUProgram* gpuProgram;
+	Camera* camera;
+	mat4 MVP;
+	mat4 invMVP;
 public:
 	GreenTriangleApp() : glApp("Lab2") { }
 
-	// Inicializ�ci�, 
 	void onInitialization() {
-		triangle = new Geometry<vec3>;
-		triangle->Vtx() = { vec3(-0.8f, -0.8f, 1.0f), vec3(-0.6f, 1.0f, 1.0f), vec3(0.8f, -0.2f, 1.0f) };
-		triangle->updateGPU();
+		// TODO: MVP kiszámítás
+		// TODO: MVP inverz kiszámítás
+
 		gpuProgram = new GPUProgram(vertSource, fragSource);
+		camera = new Camera(vec3(10.0f, 10.0f, 1.0f), 20.0f, 20.0f);
+		MVP = camera->projection() * camera->view();
+		invMVP = camera->invProjection() * camera->invView();
 	}
 
-	// Ablak �jrarajzol�s
 	void onDisplay() {
-		glClearColor(0, 0, 0, 0);     // h�tt�r sz�n
-		glClear(GL_COLOR_BUFFER_BIT); // rasztert�r t�rl�s
+		glClearColor(0, 0, 0, 0);
+		glClear(GL_COLOR_BUFFER_BIT);
 		glViewport(0, 0, winWidth, winHeight);
-		triangle->Draw(gpuProgram, GL_TRIANGLES, vec3(0.0f, 1.0f, 0.0f));
 	}
+
+	void onMousePressed(MouseButton but, int pX, int pY) {
+		// Screen space point
+		vec4 pPoint((float) pX, (float) pY, 1.0f, 1.0f);
+
+		// Clip space point
+		vec4 cPoint(
+			(float) pX / winWidth * 2.0f - 1.0f,
+			1.0f - (float) pY / winHeight * 2.0f,
+			1.0f,
+			1.0f
+		);
+
+		printf("Clicked (in device coordinates): (%d, %d)\n", pX, pY);
+		printf("Clicked (in clip coordinates): (%lf, %lf)\n", cPoint.x, cPoint.y);
+
+		vec4 wPoint = camera->invView() * camera->invProjection() * vec4(cPoint.x, cPoint.y, 1.0f, 1.0f);
+		printf("Clicked (in world coordinates): (%lf, %lf)\n", wPoint.x, wPoint.y);
+	}
+	
 };
 
 GreenTriangleApp app;
