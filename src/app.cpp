@@ -4,6 +4,7 @@
 #include "../inc/framework.h"
 
 using namespace::glm;
+using namespace::std;
 
 // cs�cspont �rnyal�
 const char * vertSource = R"(
@@ -112,6 +113,87 @@ private:
 	vec3 wCenter;
 	float wWidth;
 	float wHeight;
+};
+
+class Spline {
+public:
+	/**
+	 * Spline konstruktor.
+	 */
+	Spline() {
+		// TODO: generate and bind vao, vbo
+		glGenVertexArrays(1, &controlPointsVAO);
+		glGenBuffers(1, &controlPointsVBO);
+	}
+
+	/**
+	 * Hozzáad egy új kontrol pontot világ koordináták szerint.
+	 * 
+	 * @param wP Pont világ koordinátákkal.
+	 * @param wP Csomópont érték.
+	 */
+	// TODO: figure out what the t (knotValue) parameter means
+	void addControlPoint(vec3 wP, float knotValue) {
+
+	}
+	
+	/**
+	 * Megadja a t paraméterhez tartozó pont helyvektorát világ koordinátákban.
+	 * 
+	 * @param t Szabad paramáter.
+	 */
+	vec3 wR(float t) {
+
+	}
+
+	/**
+	 * Szinkronizálja a GPU-n és CPU-n tárolt adatokat.
+	 */
+	void sync() {
+		bindControlPoints();
+		glBufferData(GL_ARRAY_BUFFER, wControlPoints.size() * sizeof(vec3), wControlPoints.data(), GL_STATIC_DRAW);
+	}
+
+	/**
+	 * Kirajzolja a GPU-n tárolt állapotot.
+	 */
+	void draw(GPUProgram* gpuProgram) {
+		gpuProgram->setUniform(vec3(0.0f, 1.0f, 1.0f), "color"); // yellow
+		bindSections();
+		glLineWidth(3);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vec3), nullptr);
+		// TODO: draw
+		
+		gpuProgram->setUniform(vec3(1.0f, 0.0f, 0.0f), "color"); // red
+		bindControlPoints();
+		glPointSize(10);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vec3), nullptr);
+		glDrawArrays(GL_POINTS, 0, wControlPoints.size());
+	}
+
+private:
+	unsigned int controlPointsVAO;
+	unsigned int controlPointsVBO;
+	unsigned int sectionsVAO;
+	unsigned int sectionVBO;
+	vector<vec3> wControlPoints;
+	vector<float> knotValues;
+
+	vec3 wHermite(vec3 p0, vec3 v0, vec3 t0, vec3 p1, vec3 v1, vec3 t1, float t) {
+
+	}
+
+	void bindControlPoints() {
+		glBindVertexArray(controlPointsVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, controlPointsVBO);
+	}
+
+	void bindSections() {
+		glBindVertexArray(sectionsVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, sectionVBO);
+	}
 };
 
 const int winWidth = 600, winHeight = 600;
