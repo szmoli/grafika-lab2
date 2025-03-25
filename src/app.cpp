@@ -76,7 +76,12 @@ public:
 	 * Kiszámítja a view transzformációs mátrix inverzét a kamera tulajdonságaiból.
 	 */
 	mat4 invView() {
-
+		return mat4 {
+			vec4(1.0f, 0.0f, 0.0f, wCenter.x),
+			vec4(0.0f, 1.0f, 0.0f, wCenter.y),
+			vec4(0.0f, 0.0f, 1.0f, 0.0f),
+			vec4(0.0f, 0.0f, 0.0f, 1.0f)
+		};
 	}
 
 	/**
@@ -95,7 +100,12 @@ public:
 	 * Kiszámítja a projection transzformációs mátrix inverzét a kamera tulajdonságaiból.
 	 */
 	mat4 invProjection() {
-
+		return mat4 {
+			vec4((wWidth / 2.0f),	0.0f, 				0.0f, 0.0f),
+			vec4(0.0f,				(wHeight / 2.0f),	0.0f, 0.0f),
+			vec4(0.0f, 				0.0f, 				1.0f, 0.0f),
+			vec4(0.0f, 				0.0f, 				0.0f, 1.0f)
+		};
 	}
 
 private:	
