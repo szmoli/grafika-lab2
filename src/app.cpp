@@ -121,7 +121,7 @@ private:
 class Spline {
 public:
 	/**
-	 * Spline konstruktor.
+	 * Spline konstruktor. Legenerál a pontokhoz és a vektorizált görbe szakaszokhoz is 1-1 VAO-t és VBO-t. Beállítja a kezdő csomópont értéket.
 	 */
 	Spline() {
 		glGenVertexArrays(1, &controlPointsVAO);
@@ -136,7 +136,6 @@ public:
 	 * 
 	 * @param wP Pont világ koordinátákkal.
 	 */
-	// TODO: figure out what the t (knotValue) parameter means
 	void addControlPoint(vec3 wP) {
 		wControlPoints.push_back(wP);
 		knotValues.push_back(currentKnotValue++); // Uniform paraméterezés szerint automatikusan növeli 1-el 0-tól kezdve a csomópontértékeket.
