@@ -12,10 +12,10 @@ const char * vertSource = R"(
     precision highp float;
 
 	uniform mat4 MVP;
-	layout(location = 0) in vec3 cP;	// 0. bemeneti regiszter
+	layout(location = 0) in vec3 wP;	// 0. bemeneti regiszter
 
 	void main() {
-		gl_Position = MVP * vec4(cP.x, cP.y, cP.z, 1); 	// bemenet m�r normaliz�lt eszk�zkoordin�t�kban
+		gl_Position = MVP * vec4(wP.x, wP.y, wP.z, 1);
 	}
 )";
 
@@ -59,6 +59,7 @@ public:
 		// 	vec4(0.0f, 0.0f, 0.0f, 1.0f)
 		// };
 
+		// return transpose(translate(vec3(-wCenter.x, -wCenter.y, 0.0f)));		
 		return translate(vec3(-wCenter.x, -wCenter.y, 0.0f));
 	}
 
@@ -89,7 +90,8 @@ public:
 		// 	vec4(0.0f, 				0.0f, 				0.0f, 1.0f)
 		// };
 	
-		return scale(vec3(2.0f / wWidth, 2.0f / wHeight, 1));
+		// return transpose(scale(vec3(2.0f / wWidth, 2.0f / wHeight, 1)));
+		return scale(vec3(2.0f / wWidth, 2.0f / wHeight, 1.0f));
 	}
 
 	/**
@@ -104,7 +106,7 @@ public:
 		// 	vec4(0.0f, 				0.0f, 				0.0f, 1.0f)
 		// };
 
-		return scale(vec3(wWidth / 2.0f, wHeight / 2.0f, 1));
+		return scale(vec3(wWidth / 2.0f, wHeight / 2.0f, 1.0f));
 	}
 
 private:	
@@ -123,9 +125,9 @@ public:
 	 */
 	Spline() {
 		glGenVertexArrays(1, &controlPointsVAO);
+		glBindVertexArray(controlPointsVAO);
 		glGenBuffers(1, &controlPointsVBO);
-		glGenVertexArrays(1, &sectionsVAO);
-		glGenBuffers(1, &sectionVBO);
+		
 		currentKnotValue = 0;
 	}
 
@@ -137,6 +139,14 @@ public:
 	void addControlPoint(vec3 wP) {
 		wControlPoints.push_back(wP);
 		knotValues.push_back(currentKnotValue++); // Uniform paraméterezés szerint automatikusan növeli 1-el 0-tól kezdve a csomópontértékeket.
+
+		printf("Control points and knot values:\n");
+		for (int i = 0; i < wControlPoints.size(); ++i) {
+			printf("\tWorld space: (%lf, %lf): %d\n", wControlPoints.at(i).x, wControlPoints.at(i).y, knotValues.at(i));
+			// vec4 clipPoint = MVP * vec4(wControlPoints.at(i), 1.0f);
+			// clipPoint /= clipPoint.w; // Perspective divide
+			// printf("\tClip space: (%.3f, %.3f, %.3f, %.3f)\n", clipPoint.x, clipPoint.y, clipPoint.z, clipPoint.w);
+		}
 	}
 	
 	/**
@@ -154,7 +164,12 @@ public:
 	 */
 	void sync() {
 		bindControlPoints();
+
 		glBufferData(GL_ARRAY_BUFFER, wControlPoints.size() * sizeof(vec3), wControlPoints.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+		printf("Synced control points.\n");
 	}
 
 	/**
@@ -162,20 +177,25 @@ public:
 	 * 
 	 * @param gpuProgram Shader program, amin beállítja a szín uniformot.
 	 */
-	void draw(GPUProgram* gpuProgram) {
-		gpuProgram->setUniform(vec3(0.0f, 1.0f, 1.0f), "color"); // yellow
-		bindSections();
-		glLineWidth(3);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vec3), nullptr);
+	void draw(GPUProgram* gpuProgram, mat4 MVP) {
 		// TODO: draw
+		// gpuProgram->setUniform(vec3(0.0f, 1.0f, 1.0f), "color"); // yellow
+		// bindSections();
+		// glLineWidth(3);
+		// glEnableVertexAttribArray(0);
+		// glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vec3), nullptr);
 		
-		gpuProgram->setUniform(vec3(1.0f, 0.0f, 0.0f), "color"); // red
 		bindControlPoints();
-		glPointSize(10);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vec3), nullptr);
+		
+		gpuProgram->Use();
+		gpuProgram->setUniform(vec3(1.0f, 0.0f, 0.0f), "color"); // red
+		gpuProgram->setUniform(MVP, "MVP");
+		
+		// glEnableVertexAttribArray(0);
+		// glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), nullptr);
 		glDrawArrays(GL_POINTS, 0, wControlPoints.size());
+
+		printf("Drawn control points.\n");
 	}
 
 private:
@@ -186,6 +206,7 @@ private:
 	unsigned int currentKnotValue;
 	vector<vec3> wControlPoints;
 	vector<float> knotValues;
+	// mat4 MVP;
 
 	/**
 	 * Kiszámolja a t paraméterhez tartozó pont helyvektorát, ami a p0-p1 Hermite interpolációs görbére esik.
@@ -230,25 +251,31 @@ const int winWidth = 600, winHeight = 600;
 class GreenTriangleApp : public glApp {
 	GPUProgram* gpuProgram;
 	Camera* camera;
+	Spline* spline;
 	mat4 MVP;
 	mat4 invMVP;
 public:
 	GreenTriangleApp() : glApp("Lab2") { }
 
 	void onInitialization() {
-		// TODO: MVP kiszámítás
-		// TODO: MVP inverz kiszámítás
-
 		gpuProgram = new GPUProgram(vertSource, fragSource);
+
 		camera = new Camera(vec3(10.0f, 10.0f, 1.0f), 20.0f, 20.0f);
 		MVP = camera->projection() * camera->view();
-		invMVP = camera->invProjection() * camera->invView();
+		invMVP = camera->invView() * camera->invProjection();
+
+		spline = new Spline();
 	}
 
 	void onDisplay() {
+		glPointSize(10);
+
 		glClearColor(0, 0, 0, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glViewport(0, 0, winWidth, winHeight);
+
+		spline->sync();
+		spline->draw(gpuProgram, MVP);
 	}
 
 	void onMousePressed(MouseButton but, int pX, int pY) {
@@ -263,11 +290,19 @@ public:
 			1.0f
 		);
 
+		// World space point
+		vec4 wPoint = invMVP * vec4(cPoint.x, cPoint.y, 1.0f, 1.0f);
+		spline->addControlPoint(wPoint);
+		
+		// Clip space point again
+		vec4 cPointAgain = MVP * wPoint;
+		
 		printf("Clicked (in device coordinates): (%d, %d)\n", pX, pY);
 		printf("Clicked (in clip coordinates): (%lf, %lf)\n", cPoint.x, cPoint.y);
-
-		vec4 wPoint = camera->invView() * camera->invProjection() * vec4(cPoint.x, cPoint.y, 1.0f, 1.0f);
 		printf("Clicked (in world coordinates): (%lf, %lf)\n", wPoint.x, wPoint.y);
+		printf("Transformed to clip space again: (%lf, %lf)\n", cPointAgain.x, cPointAgain.y);
+
+		refreshScreen();
 	}
 	
 };
