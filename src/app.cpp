@@ -197,7 +197,12 @@ private:
 	 * @param t1 T paraméter az második kontrollponthoz.
 	 */
 	vec3 wHermite(vec3 p0, vec3 v0, vec3 t0, vec3 p1, vec3 v1, vec3 t1, float t) {
-
+		// r(t)		= a_3 * (t - t_i)^3 + a_2 * (t - t_i)^2 + a_1 * (t - t_i) + a_0
+		// r'(t) 	= 3 * a_3 * (t - t_i)^2 + 2 * a_2 * (t - t_i) + a_1
+		// a_0 = p_i
+		// a_1 = v_i
+		// a_2 = 3 * (p_{i+1} - p_i) / (t_{i+1} - t_i)^2 - (v_{i+1} + 2 * v_i) / (t_{i+1} - t_i)
+		// a_3 = 2 * (p_i - p_{i+1}) / (t_{i+1} - t_i)^3 - (v_{i+1} + v_i) / (t_{i+1} - t_i)^2
 	}
 
 	/**
