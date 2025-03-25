@@ -115,26 +115,31 @@ private:
 	float wHeight;
 };
 
+/**
+ * Uniform paraméterezésű Catmull-Rom spline osztály.
+ */
 class Spline {
 public:
 	/**
 	 * Spline konstruktor.
 	 */
 	Spline() {
-		// TODO: generate and bind vao, vbo
 		glGenVertexArrays(1, &controlPointsVAO);
 		glGenBuffers(1, &controlPointsVBO);
+		glGenVertexArrays(1, &sectionsVAO);
+		glGenBuffers(1, &sectionVBO);
+		currentKnotValue = 0;
 	}
 
 	/**
-	 * Hozzáad egy új kontrol pontot világ koordináták szerint.
+	 * Hozzáad egy új kontrol pontot világ koordináták szerint uniform paraméterezés szerint automatikusan számított csomópont értékkel.
 	 * 
 	 * @param wP Pont világ koordinátákkal.
-	 * @param wP Csomópont érték.
 	 */
 	// TODO: figure out what the t (knotValue) parameter means
-	void addControlPoint(vec3 wP, float knotValue) {
-
+	void addControlPoint(vec3 wP) {
+		wControlPoints.push_back(wP);
+		knotValues.push_back(currentKnotValue++); // Uniform paraméterezés szerint automatikusan növeli 1-el 0-tól kezdve a csomópontértékeket.
 	}
 	
 	/**
@@ -178,18 +183,35 @@ private:
 	unsigned int controlPointsVBO;
 	unsigned int sectionsVAO;
 	unsigned int sectionVBO;
+	unsigned int currentKnotValue;
 	vector<vec3> wControlPoints;
 	vector<float> knotValues;
 
+	/**
+	 * Kiszámolja a t paraméterhez tartozó pont helyvektorát, ami a p0-p1 Hermite interpolációs görbére esik.
+	 * 
+	 * @param p0 Első kontroll pont.
+	 * @param v0 Sebességvektor az első kontrollpontban.
+	 * @param t0 T paraméter az első kontrollponthoz.
+	 * @param p1 Második kontroll pont.
+	 * @param v1 Sebességvektor az második kontrollpontban.
+	 * @param t1 T paraméter az második kontrollponthoz.
+	 */
 	vec3 wHermite(vec3 p0, vec3 v0, vec3 t0, vec3 p1, vec3 v1, vec3 t1, float t) {
 
 	}
 
+	/**
+	 * Bindolja a kontrollpontok VAO és VBO-ját.
+	 */
 	void bindControlPoints() {
 		glBindVertexArray(controlPointsVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, controlPointsVBO);
 	}
 
+	/**
+	 * Bindolja a vektorizált görbék VAO és VBO-ját.
+	 */
 	void bindSections() {
 		glBindVertexArray(sectionsVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, sectionVBO);
