@@ -51,15 +51,7 @@ public:
 	 * Kiszámítja a view transzformációs mátrixot a kamera tulajdonságaiból.
 	 * @return mat4 View mátrix
 	 */
-	mat4 view() {
-		// return mat4 {
-		// 	vec4(1.0f, 0.0f, 0.0f, -wCenter.x),
-		// 	vec4(0.0f, 1.0f, 0.0f, -wCenter.y),
-		// 	vec4(0.0f, 0.0f, 1.0f, 0.0f),
-		// 	vec4(0.0f, 0.0f, 0.0f, 1.0f)
-		// };
-
-		// return transpose(translate(vec3(-wCenter.x, -wCenter.y, 0.0f)));		
+	mat4 view() {	
 		return translate(vec3(-wCenter.x, -wCenter.y, 0.0f));
 	}
 
@@ -68,13 +60,6 @@ public:
 	 * @return mat4 View mátrix inverze
 	 */
 	mat4 invView() {
-		// return mat4 {
-		// 	vec4(1.0f, 0.0f, 0.0f, wCenter.x),
-		// 	vec4(0.0f, 1.0f, 0.0f, wCenter.y),
-		// 	vec4(0.0f, 0.0f, 1.0f, 0.0f),
-		// 	vec4(0.0f, 0.0f, 0.0f, 1.0f)
-		// };
-
 		return translate(vec3(wCenter.x, wCenter.y, 0));
 	}
 
@@ -83,14 +68,6 @@ public:
 	 * @return mat4 Projection mátrix
 	 */
 	mat4 projection() {
-		// return mat4 {
-		// 	vec4((2.0f / wWidth),	0.0f, 				0.0f, 0.0f),
-		// 	vec4(0.0f,				(2.0f / wHeight),	0.0f, 0.0f),
-		// 	vec4(0.0f, 				0.0f, 				1.0f, 0.0f),
-		// 	vec4(0.0f, 				0.0f, 				0.0f, 1.0f)
-		// };
-	
-		// return transpose(scale(vec3(2.0f / wWidth, 2.0f / wHeight, 1)));
 		return scale(vec3(2.0f / wWidth, 2.0f / wHeight, 1.0f));
 	}
 
@@ -99,13 +76,6 @@ public:
 	 * @return mat4 Projection mátrix inverze
 	 */
 	mat4 invProjection() {
-		// return mat4 {
-		// 	vec4((wWidth / 2.0f),	0.0f, 				0.0f, 0.0f),
-		// 	vec4(0.0f,				(wHeight / 2.0f),	0.0f, 0.0f),
-		// 	vec4(0.0f, 				0.0f, 				1.0f, 0.0f),
-		// 	vec4(0.0f, 				0.0f, 				0.0f, 1.0f)
-		// };
-
 		return scale(vec3(wWidth / 2.0f, wHeight / 2.0f, 1.0f));
 	}
 
@@ -166,15 +136,12 @@ public:
 				if (i == 0) {
 					v0 = vec3(0.f ,0.f, 0.f);
 				}
-				// else {
-				// 	v0 = 	0.5f * 
-				// 			(((wControlPoints.at(i + 1) - wControlPoints.at(i)) / 
-				// 			(knotValues.at(i + 1) - knotValues.at(i))) +
-				// 			((wControlPoints.at(i) - wControlPoints.at(i - 1)) /
-				// 			(knotValues.at(i) - knotValues.at(i - 1))));
-				// }
 				else {
-					v0 = vec3(1.f, 1.f, 0.f);
+					v0 = 	0.5f * 
+							(((wControlPoints.at(i + 1) - wControlPoints.at(i)) / 
+							(knotValues.at(i + 1) - knotValues.at(i))) +
+							((wControlPoints.at(i) - wControlPoints.at(i - 1)) /
+							(knotValues.at(i) - knotValues.at(i - 1))));
 				}
 
 				vec3 v1;
@@ -182,18 +149,12 @@ public:
 				if (i + 1 == wControlPoints.size() - 1) {
 					v1 = vec3(0.f, 0.f, 0.f);
 				} 
-				// else if (i + 2 < wControlPoints.size() && i + 2 < knotValues.size()) {
-				// 	v1 = 0.5f * 
-				// 		(((wControlPoints.at(i + 2) - wControlPoints.at(i + 1)) /
-				// 		(knotValues.at(i + 2) - knotValues.at(i + 1))) +
-				// 		((wControlPoints.at(i + 1) - wControlPoints.at(i)) /
-				// 		(knotValues.at(i + 1) - knotValues.at(i))));
-				// } 
-				// else {
-				// 	v1 = vec3(0.f, 0.f, 0.f);
-				// }
 				else {
-					v1 = vec3(1.f, 1.f, 0.f);
+					v1 = 0.5f * 
+						(((wControlPoints.at(i + 2) - wControlPoints.at(i + 1)) /
+						(knotValues.at(i + 2) - knotValues.at(i + 1))) +
+						((wControlPoints.at(i + 1) - wControlPoints.at(i)) /
+						(knotValues.at(i + 1) - knotValues.at(i))));
 				}
 
 				return wHermite(
@@ -208,7 +169,7 @@ public:
 			}
 		}
 
-		return vec3(0.f, 0.f, 0.f);
+		return vec3(0.f, 0.f, 2.f);
 	}
 
 	/**
@@ -218,11 +179,16 @@ public:
 		// Görbék kiszámítása
 		if (wControlPoints.size() >= 2) {
 			wCurvePoints.clear();
-			int resolution = 3;
+			int resolution = 100;
 
-			// TODO: for all points
-			for (int i = 0; i <= resolution; ++i) {
-				wCurvePoints.push_back(wR((float) i / resolution));
+			float incrementation = knotValues.back() / (knotValues.size() * resolution);
+			printf("incrementation: %lf\n", incrementation);
+
+			for (float t = 0; t <= knotValues.back(); t += incrementation) {
+				vec3 wCurvePoint = wR(t);
+				printf("curve point added: (%lf, %lf, %lf)\n", wCurvePoint.x, wCurvePoint.y, wCurvePoint.z);
+
+				wCurvePoints.push_back(wCurvePoint);
 			}
 		}
 		
@@ -293,13 +259,6 @@ private:
 	 * @return vec3 A t paraméterhez tartozó pont helyvektora világ koordinátákban. 
 	 */
 	vec3 wHermite(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
-		// r(t)		= a_3 * (t - t_i)^3 + a_2 * (t - t_i)^2 + a_1 * (t - t_i) + a_0
-		// r'(t) 	= 3 * a_3 * (t - t_i)^2 + 2 * a_2 * (t - t_i) + a_1
-		// a_0 = p_i
-		// a_1 = v_i
-		// a_2 = 3 * (p_{i+1} - p_i) / (t_{i+1} - t_i)^2 - (v_{i+1} + 2 * v_i) / (t_{i+1} - t_i)
-		// a_3 = 2 * (p_i - p_{i+1}) / (t_{i+1} - t_i)^3 + (v_{i+1} + v_i) / (t_{i+1} - t_i)^2
-
 		float dt = t1 - t0;
 		vec3 a0 =	p0;
 		vec3 a1 =	v0;
@@ -378,10 +337,10 @@ public:
 		// Clip space point again
 		vec4 cPointAgain = MVP * wPoint;
 		
-		printf("Clicked (in device coordinates): (%d, %d)\n", pX, pY);
-		printf("Clicked (in clip coordinates): (%lf, %lf)\n", cPoint.x, cPoint.y);
-		printf("Clicked (in world coordinates): (%lf, %lf)\n", wPoint.x, wPoint.y);
-		printf("Transformed to clip space again: (%lf, %lf)\n", cPointAgain.x, cPointAgain.y);
+		// printf("Clicked (in device coordinates): (%d, %d)\n", pX, pY);
+		// printf("Clicked (in clip coordinates): (%lf, %lf)\n", cPoint.x, cPoint.y);
+		// printf("Clicked (in world coordinates): (%lf, %lf)\n", wPoint.x, wPoint.y);
+		// printf("Transformed to clip space again: (%lf, %lf)\n", cPointAgain.x, cPointAgain.y);
 
 		refreshScreen();
 	}
