@@ -124,6 +124,10 @@ public:
 	 * Spline konstruktor. Legenerál a pontokhoz és a vektorizált görbe szakaszokhoz is 1-1 VAO-t és VBO-t. Beállítja a kezdő csomópont értéket.
 	 */
 	Spline() {
+		glGenVertexArrays(1, &curvePointsVAO);
+		glBindVertexArray(curvePointsVAO);
+		glGenBuffers(1, &curvePointsVBO);
+
 		glGenVertexArrays(1, &controlPointsVAO);
 		glBindVertexArray(controlPointsVAO);
 		glGenBuffers(1, &controlPointsVBO);
@@ -142,10 +146,7 @@ public:
 
 		printf("Control points and knot values:\n");
 		for (int i = 0; i < wControlPoints.size(); ++i) {
-			printf("\tWorld space: (%lf, %lf): %d\n", wControlPoints.at(i).x, wControlPoints.at(i).y, knotValues.at(i));
-			// vec4 clipPoint = MVP * vec4(wControlPoints.at(i), 1.0f);
-			// clipPoint /= clipPoint.w; // Perspective divide
-			// printf("\tClip space: (%.3f, %.3f, %.3f, %.3f)\n", clipPoint.x, clipPoint.y, clipPoint.z, clipPoint.w);
+			printf("\tWorld space: (%lf, %lf): %lf\n", wControlPoints.at(i).x, wControlPoints.at(i).y, knotValues.at(i));
 		}
 	}
 	
@@ -156,13 +157,67 @@ public:
 	 * @return vec3 t paraméterhez tartozó pont helyvektora világ koordinátákban.
 	 */
 	vec3 wR(float t) {
+		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
+			if (knotValues[i] <= t && t <= knotValues[i + 1]) {
+				vec3 v0;
+				// Ha az első pontról van szó, akkor a sebesség vektor 0.
+				if (i == 0) {
+					v0 = vec3(0.f ,0.f, 0.f);
+				}
+				else {
+					v0 = 	0.5f * 
+							(((wControlPoints.at(i + 1) - wControlPoints.at(i)) / 
+							(knotValues.at(i + 1) - knotValues.at(i))) +
+							((wControlPoints.at(i) - wControlPoints.at(i - 1)) /
+							(knotValues.at(i) - knotValues.at(i - 1))));
+				}
 
+				vec3 v1;
+				// Ha az utolsó pontról van szó, akkor a sebesség vektor 0.
+				if (i + 1 == knotValues.size() - 1) {
+					v1 = vec3(0.f, 0.f, 0.f);
+				}
+				else {
+					v1 = 	0.5f * 
+							(((wControlPoints.at(i + 1 + 1) - wControlPoints.at(i + 1)) / 
+							(knotValues.at(i + 1 + 1) - knotValues.at(i + 1))) +
+							((wControlPoints.at(i + 1) - wControlPoints.at(i + 1 - 1)) /
+							(knotValues.at(i + 1) - knotValues.at(i + 1 - 1))));
+				}
+
+				return wHermite(
+					wControlPoints.at(i),
+					v0,
+					knotValues.at(i),
+					wControlPoints.at(i + 1),
+					v1,
+					knotValues.at(i + 1),
+					t
+				);
+			}
+		}
+
+		return vec3(0.f, 0.f, 0.f);
 	}
 
 	/**
 	 * Szinkronizálja a GPU-n és CPU-n tárolt adatokat.
 	 */
 	void sync() {
+		// Görbék kiszámítása
+		wCurvePoints.clear();
+		for (int i = 0; i <= 100; ++i) {
+			wCurvePoints.push_back(wR((float) i / 100));
+		}
+		
+		bindCurvePoints();
+		glBufferData(GL_ARRAY_BUFFER, wCurvePoints.size() * sizeof(vec3), wCurvePoints.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+		printf("Calculated and synced curve points.\n");
+
+
 		bindControlPoints();
 
 		glBufferData(GL_ARRAY_BUFFER, wControlPoints.size() * sizeof(vec3), wControlPoints.data(), GL_STATIC_DRAW);
@@ -178,35 +233,36 @@ public:
 	 * @param gpuProgram Shader program, amin beállítja a szín uniformot.
 	 */
 	void draw(GPUProgram* gpuProgram, mat4 MVP) {
-		// TODO: draw
-		// gpuProgram->setUniform(vec3(0.0f, 1.0f, 1.0f), "color"); // yellow
-		// bindSections();
-		// glLineWidth(3);
-		// glEnableVertexAttribArray(0);
-		// glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vec3), nullptr);
+		// Görbe
+		bindCurvePoints();
+
+		gpuProgram->Use();
+		gpuProgram->setUniform(vec3(0.0f, 1.0f, 1.0f), "color"); // yellow
+		gpuProgram->setUniform(MVP, "MVP");
+
+		glDrawArrays(GL_LINE_STRIP, 0, wCurvePoints.size());
+		printf("Drawn curve.\n");
 		
+		// Kontroll pontok
 		bindControlPoints();
 		
 		gpuProgram->Use();
 		gpuProgram->setUniform(vec3(1.0f, 0.0f, 0.0f), "color"); // red
 		gpuProgram->setUniform(MVP, "MVP");
 		
-		// glEnableVertexAttribArray(0);
-		// glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), nullptr);
 		glDrawArrays(GL_POINTS, 0, wControlPoints.size());
-
 		printf("Drawn control points.\n");
 	}
 
 private:
 	unsigned int controlPointsVAO;
 	unsigned int controlPointsVBO;
-	unsigned int sectionsVAO;
-	unsigned int sectionVBO;
+	unsigned int curvePointsVAO;
+	unsigned int curvePointsVBO;
 	unsigned int currentKnotValue;
 	vector<vec3> wControlPoints;
+	vector<vec3> wCurvePoints;
 	vector<float> knotValues;
-	// mat4 MVP;
 
 	/**
 	 * Kiszámolja a t paraméterhez tartozó pont helyvektorát, ami a p0-p1 Hermite interpolációs görbére esik.
@@ -220,13 +276,28 @@ private:
 	 * @param t  t paraméter, amihez tartozó pontot adja vissza
 	 * @return vec3 A t paraméterhez tartozó pont helyvektora világ koordinátákban. 
 	 */
-	vec3 wHermite(vec3 p0, vec3 v0, vec3 t0, vec3 p1, vec3 v1, vec3 t1, float t) {
+	vec3 wHermite(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
 		// r(t)		= a_3 * (t - t_i)^3 + a_2 * (t - t_i)^2 + a_1 * (t - t_i) + a_0
 		// r'(t) 	= 3 * a_3 * (t - t_i)^2 + 2 * a_2 * (t - t_i) + a_1
 		// a_0 = p_i
 		// a_1 = v_i
 		// a_2 = 3 * (p_{i+1} - p_i) / (t_{i+1} - t_i)^2 - (v_{i+1} + 2 * v_i) / (t_{i+1} - t_i)
 		// a_3 = 2 * (p_i - p_{i+1}) / (t_{i+1} - t_i)^3 - (v_{i+1} + v_i) / (t_{i+1} - t_i)^2
+
+		vec3 a0 =	p0;
+		vec3 a1 =	v0;
+		vec3 a2 =	3.f * 
+					((p1 - p0) /
+					(float) pow((t1 - t0), 2)) -
+					((v1 + 2.f * v0) /
+					(t1 - t0));
+		vec3 a3 =	2.f *
+					((p0 - p1) /
+					(float) pow((t1 - t0), 3)) -
+					((v1 + v0) /
+					(float) pow((t1 - t0), 2));
+
+		return a3 * (float) pow((t - t0), 3) + a2 * (float) pow((t - t0), 2) + a1 * (t - t0) + a0;
 	}
 
 	/**
@@ -240,9 +311,9 @@ private:
 	/**
 	 * Bindolja a vektorizált görbék VAO és VBO-ját.
 	 */
-	void bindSections() {
-		glBindVertexArray(sectionsVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, sectionVBO);
+	void bindCurvePoints() {
+		glBindVertexArray(curvePointsVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, curvePointsVBO);
 	}
 };
 
@@ -265,11 +336,12 @@ public:
 		invMVP = camera->invView() * camera->invProjection();
 
 		spline = new Spline();
+
+		glLineWidth(3);
+		glPointSize(10);
 	}
 
 	void onDisplay() {
-		glPointSize(10);
-
 		glClearColor(0, 0, 0, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glViewport(0, 0, winWidth, winHeight);
