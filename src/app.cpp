@@ -270,7 +270,19 @@ private:
 		return a3 * (dt * dt * dt) + a2 * (dt * dt) + a1 * dt + a0;
 	}
 
-	vec3 wHermiteFirstDerivate(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
+	/**
+	 * Kiszámolja a Hermite interpolációs görbe érintő vektorát.
+	 * 
+	 * @param p0 Első kontroll pont.
+	 * @param v0 Sebességvektor az első kontrollpontban.
+	 * @param t0 t0 paraméter az első kontrollponthoz.
+	 * @param p1 Második kontroll pont.
+	 * @param v1 Sebességvektor az második kontrollpontban.
+	 * @param t1 t1 paraméter az második kontrollponthoz.
+	 * @param t  t paraméter, amihez tartozó pontot adja vissza
+	 * @return vec3 A t paraméterhez tartozó pont érintő vektor világ koordinátákban. 
+	 */
+	vec3 wHermiteTangent(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
 		float tDiff = t1 - t0;
 		vec3 a1 =	v0;
 		vec3 a2 =	(3.f * (p1 - p0) / (tDiff * tDiff)) - ((v1 + 2.f * v0) / (t1 - t0));
@@ -278,8 +290,24 @@ private:
 
 		float dt = t - t0;
 
-		// return a3 * (dt * dt * dt) + a2 * (dt * dt) + a1 * dt + a0;
-		return 3.f * a3 * (dt * dt) + 2.f * a2 * dt + a1;
+		return normalize(3.f * a3 * (dt * dt) + 2.f * a2 * dt + a1);
+	}
+
+	/**
+	 * Kiszámolja a Hermite interpolációs görbe normál vektorát.
+	 * 
+	 * @param p0 Első kontroll pont.
+	 * @param v0 Sebességvektor az első kontrollpontban.
+	 * @param t0 t0 paraméter az első kontrollponthoz.
+	 * @param p1 Második kontroll pont.
+	 * @param v1 Sebességvektor az második kontrollpontban.
+	 * @param t1 t1 paraméter az második kontrollponthoz.
+	 * @param t  t paraméter, amihez tartozó pontot adja vissza
+	 * @return vec3 A t paraméterhez tartozó normál vektor világ koordinátákban. 
+	 */
+	vec3 wHermiteNormal(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
+		vec3 tangent = wHermiteTangent(p0, v0, t0, p1, v1, t1, t);
+		return vec3(-tangent.y, tangent.x, tangent.z);
 	}
 
 	/**
