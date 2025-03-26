@@ -157,39 +157,44 @@ public:
 	 * @return vec3 t paraméterhez tartozó pont helyvektora világ koordinátákban.
 	 */
 	vec3 wR(float t) {
-		printf("wR started\n");
 		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
-			if (knotValues[i] <= t && t <= knotValues[i + 1]) {				
+			if (knotValues[i] <= t && t <= knotValues[i + 1]) {		
+				printf("Between CP%d and CP%d\n", i, i + 1);
+				
 				vec3 v0;
 				// Ha az első pontról van szó, akkor a sebesség vektor 0.
 				if (i == 0) {
 					v0 = vec3(0.f ,0.f, 0.f);
 				}
+				// else {
+				// 	v0 = 	0.5f * 
+				// 			(((wControlPoints.at(i + 1) - wControlPoints.at(i)) / 
+				// 			(knotValues.at(i + 1) - knotValues.at(i))) +
+				// 			((wControlPoints.at(i) - wControlPoints.at(i - 1)) /
+				// 			(knotValues.at(i) - knotValues.at(i - 1))));
+				// }
 				else {
-					v0 = 	0.5f * 
-							(((wControlPoints.at(i + 1) - wControlPoints.at(i)) / 
-							(knotValues.at(i + 1) - knotValues.at(i))) +
-							((wControlPoints.at(i) - wControlPoints.at(i - 1)) /
-							(knotValues.at(i) - knotValues.at(i - 1))));
+					v0 = vec3(1.f, 1.f, 0.f);
 				}
-
-				printf("v0 calculated\n");
 
 				vec3 v1;
 				// Ha az utolsó pontról van szó, akkor a sebesség vektor 0.
 				if (i + 1 == wControlPoints.size() - 1) {
 					v1 = vec3(0.f, 0.f, 0.f);
-				} else if (i + 2 < wControlPoints.size() && i + 2 < knotValues.size()) {
-					v1 = 0.5f * 
-						(((wControlPoints.at(i + 2) - wControlPoints.at(i + 1)) /
-						(knotValues.at(i + 2) - knotValues.at(i + 1))) +
-						((wControlPoints.at(i + 1) - wControlPoints.at(i)) /
-						(knotValues.at(i + 1) - knotValues.at(i))));
-				} else {
-					v1 = vec3(0.f, 0.f, 0.f);
+				} 
+				// else if (i + 2 < wControlPoints.size() && i + 2 < knotValues.size()) {
+				// 	v1 = 0.5f * 
+				// 		(((wControlPoints.at(i + 2) - wControlPoints.at(i + 1)) /
+				// 		(knotValues.at(i + 2) - knotValues.at(i + 1))) +
+				// 		((wControlPoints.at(i + 1) - wControlPoints.at(i)) /
+				// 		(knotValues.at(i + 1) - knotValues.at(i))));
+				// } 
+				// else {
+				// 	v1 = vec3(0.f, 0.f, 0.f);
+				// }
+				else {
+					v1 = vec3(1.f, 1.f, 0.f);
 				}
-
-				printf("v1 calculated\n");
 
 				return wHermite(
 					wControlPoints.at(i),
@@ -213,8 +218,11 @@ public:
 		// Görbék kiszámítása
 		if (wControlPoints.size() >= 2) {
 			wCurvePoints.clear();
-			for (int i = 0; i <= 100; ++i) {
-				wCurvePoints.push_back(wR((float) i / 100));
+			int resolution = 3;
+
+			// TODO: for all points
+			for (int i = 0; i <= resolution; ++i) {
+				wCurvePoints.push_back(wR((float) i / resolution));
 			}
 		}
 		
@@ -290,22 +298,15 @@ private:
 		// a_0 = p_i
 		// a_1 = v_i
 		// a_2 = 3 * (p_{i+1} - p_i) / (t_{i+1} - t_i)^2 - (v_{i+1} + 2 * v_i) / (t_{i+1} - t_i)
-		// a_3 = 2 * (p_i - p_{i+1}) / (t_{i+1} - t_i)^3 - (v_{i+1} + v_i) / (t_{i+1} - t_i)^2
+		// a_3 = 2 * (p_i - p_{i+1}) / (t_{i+1} - t_i)^3 + (v_{i+1} + v_i) / (t_{i+1} - t_i)^2
 
+		float dt = t1 - t0;
 		vec3 a0 =	p0;
 		vec3 a1 =	v0;
-		vec3 a2 =	3.f * 
-					((p1 - p0) /
-					(float) pow((t1 - t0), 2)) -
-					((v1 + 2.f * v0) /
-					(t1 - t0));
-		vec3 a3 =	2.f *
-					((p0 - p1) /
-					(float) pow((t1 - t0), 3)) -
-					((v1 + v0) /
-					(float) pow((t1 - t0), 2));
+		vec3 a2 =	(3.f * (p1 - p0) / (dt * dt)) - ((v1 + 2.f * v0) / (t1 - t0));
+		vec3 a3 =	(2.f * (p0 - p1) / (dt * dt * dt)) + ((v1 + v0) / (dt * dt));
 
-		return a3 * (float) pow((t - t0), 3) + a2 * (float) pow((t - t0), 2) + a1 * (t - t0) + a0;
+		return a3 * powf((t - t0), 3) + a2 * powf((t - t0), 2) + a1 * (t - t0) + a0;
 	}
 
 	/**
