@@ -169,7 +169,7 @@ public:
 			}
 		}
 
-		return vec3(0.f, 0.f, 2.f);
+		return vec3(NAN);
 	}
 
 	/**
@@ -259,13 +259,27 @@ private:
 	 * @return vec3 A t paraméterhez tartozó pont helyvektora világ koordinátákban. 
 	 */
 	vec3 wHermite(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
-		float dt = t1 - t0;
+		float tDiff = t1 - t0;
 		vec3 a0 =	p0;
 		vec3 a1 =	v0;
-		vec3 a2 =	(3.f * (p1 - p0) / (dt * dt)) - ((v1 + 2.f * v0) / (t1 - t0));
-		vec3 a3 =	(2.f * (p0 - p1) / (dt * dt * dt)) + ((v1 + v0) / (dt * dt));
+		vec3 a2 =	(3.f * (p1 - p0) / (tDiff * tDiff)) - ((v1 + 2.f * v0) / (t1 - t0));
+		vec3 a3 =	(2.f * (p0 - p1) / (tDiff * tDiff * tDiff)) + ((v1 + v0) / (tDiff * tDiff));
 
-		return a3 * powf((t - t0), 3) + a2 * powf((t - t0), 2) + a1 * (t - t0) + a0;
+		float dt = t - t0;
+
+		return a3 * (dt * dt * dt) + a2 * (dt * dt) + a1 * dt + a0;
+	}
+
+	vec3 wHermiteFirstDerivate(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
+		float tDiff = t1 - t0;
+		vec3 a1 =	v0;
+		vec3 a2 =	(3.f * (p1 - p0) / (tDiff * tDiff)) - ((v1 + 2.f * v0) / (t1 - t0));
+		vec3 a3 =	(2.f * (p0 - p1) / (tDiff * tDiff * tDiff)) + ((v1 + v0) / (tDiff * tDiff));
+
+		float dt = t - t0;
+
+		// return a3 * (dt * dt * dt) + a2 * (dt * dt) + a1 * dt + a0;
+		return 3.f * a3 * (dt * dt) + 2.f * a2 * dt + a1;
 	}
 
 	/**
