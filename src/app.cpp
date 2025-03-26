@@ -157,8 +157,9 @@ public:
 	 * @return vec3 t paraméterhez tartozó pont helyvektora világ koordinátákban.
 	 */
 	vec3 wR(float t) {
+		printf("wR started\n");
 		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
-			if (knotValues[i] <= t && t <= knotValues[i + 1]) {
+			if (knotValues[i] <= t && t <= knotValues[i + 1]) {				
 				vec3 v0;
 				// Ha az első pontról van szó, akkor a sebesség vektor 0.
 				if (i == 0) {
@@ -172,18 +173,23 @@ public:
 							(knotValues.at(i) - knotValues.at(i - 1))));
 				}
 
+				printf("v0 calculated\n");
+
 				vec3 v1;
 				// Ha az utolsó pontról van szó, akkor a sebesség vektor 0.
-				if (i + 1 == knotValues.size() - 1) {
+				if (i + 1 == wControlPoints.size() - 1) {
+					v1 = vec3(0.f, 0.f, 0.f);
+				} else if (i + 2 < wControlPoints.size() && i + 2 < knotValues.size()) {
+					v1 = 0.5f * 
+						(((wControlPoints.at(i + 2) - wControlPoints.at(i + 1)) /
+						(knotValues.at(i + 2) - knotValues.at(i + 1))) +
+						((wControlPoints.at(i + 1) - wControlPoints.at(i)) /
+						(knotValues.at(i + 1) - knotValues.at(i))));
+				} else {
 					v1 = vec3(0.f, 0.f, 0.f);
 				}
-				else {
-					v1 = 	0.5f * 
-							(((wControlPoints.at(i + 1 + 1) - wControlPoints.at(i + 1)) / 
-							(knotValues.at(i + 1 + 1) - knotValues.at(i + 1))) +
-							((wControlPoints.at(i + 1) - wControlPoints.at(i + 1 - 1)) /
-							(knotValues.at(i + 1) - knotValues.at(i + 1 - 1))));
-				}
+
+				printf("v1 calculated\n");
 
 				return wHermite(
 					wControlPoints.at(i),
@@ -205,9 +211,11 @@ public:
 	 */
 	void sync() {
 		// Görbék kiszámítása
-		wCurvePoints.clear();
-		for (int i = 0; i <= 100; ++i) {
-			wCurvePoints.push_back(wR((float) i / 100));
+		if (wControlPoints.size() >= 2) {
+			wCurvePoints.clear();
+			for (int i = 0; i <= 100; ++i) {
+				wCurvePoints.push_back(wR((float) i / 100));
+			}
 		}
 		
 		bindCurvePoints();
@@ -237,7 +245,7 @@ public:
 		bindCurvePoints();
 
 		gpuProgram->Use();
-		gpuProgram->setUniform(vec3(0.0f, 1.0f, 1.0f), "color"); // yellow
+		gpuProgram->setUniform(vec3(1.0f, 1.0f, 0.0f), "color"); // yellow
 		gpuProgram->setUniform(MVP, "MVP");
 
 		glDrawArrays(GL_LINE_STRIP, 0, wCurvePoints.size());
