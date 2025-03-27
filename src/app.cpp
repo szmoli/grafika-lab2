@@ -373,7 +373,7 @@ public:
 	 * Elforgatja a kereket a tárolt aktuális elfordulásával.
 	 */
 	mat4 model() {
-		return rotate(radRotation, vec3(0.f, 0.f, 1.f));
+		return translate(vec3(wCenter.x, wCenter.y, 0.f)) * rotate(radRotation, vec3(0.f, 0.f, 1.f));
 	}
 
 	/**
@@ -387,35 +387,68 @@ public:
 	 * Szinkronizálja a kereket pontjait a GPU-ra.
 	 */
 	void sync() {
-		wCirclePoints.clear();
+		mCirclePoints.clear();
+		mOutlinePoints.clear();
 
-		for (float phi = 0.f; phi < 360.f; ++phi) {
-			vec3 wPoint = vec3(wRadius * cos(radians(phi)) + wCenter.x, wRadius * sin(radians(phi)) + wCenter.y, 1.f);
-			wCirclePoints.push_back(wPoint);
+		// Körvonal pontjainak kiszámítása
+		int resolution = 15;
+		float multiplier = 360 / resolution;
+		for (int phi = 0; phi < resolution; ++phi) {
+			float actualPhi = (float)phi * multiplier;
+			vec3 mPoint = vec3(wRadius * cos(radians(actualPhi)), wRadius * sin(radians(actualPhi)), 1.f);
+			mCirclePoints.push_back(mPoint);
+			// wOutlinePoints.push_back(wPoint);
 		}
 
-		// wCirclePoints.push_back(wCenter);
+		// TODO: linestrip körvonalnak és kettő szakasz kerék cuccnak
+
+		vec3 mCenter = vec3(0.f, 0.f, 1.f); 
+		vec4 mwCenter = model() * vec4(mCenter.x, mCenter.y, mCenter.z, 1.f);
+		printf("mCenter to wCenter: (%lf, %lf, %lf)\n", mwCenter.x, mwCenter.y, mwCenter.z);
+		mOutlinePoints.push_back(mCenter);
+		// wOutlinePoints.push_
 
 		bindFill();
-		glBufferData(GL_ARRAY_BUFFER, wCirclePoints.size() * sizeof(vec3), wCirclePoints.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, mCirclePoints.size() * sizeof(vec3), mCirclePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		printf("Calculated and synced circle points.\n");
+		printf("Calculated and synced circle fill points.\n");
 
 		bindOutlines();
+		glBufferData(GL_ARRAY_BUFFER, mOutlinePoints.size() * sizeof(vec3), mOutlinePoints.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+		printf("Calculated and synced circle outline points.\n");
 	}
 
 	/**
 	 * Megrajzolja a kereket
 	 */
 	void draw(GPUProgram* gpuProgram, mat4 MVP) {		
+		MVP = MVP * model();
+
 		bindFill();
 		gpuProgram->Use();
 		gpuProgram->setUniform(vec3(0.0f, 0.0f, 1.0f), "color"); // blue
-		// MVP = MVP * model();
 		gpuProgram->setUniform(MVP, "MVP");
-		glDrawArrays(GL_TRIANGLE_FAN, 0, wCirclePoints.size());
-		printf("Drawn circle.\n");
+		glDrawArrays(GL_TRIANGLE_FAN, 0, mCirclePoints.size());
+		printf("Drawn circle fill.\n");
+
+		// printf("points: %d\n", wCirclePoints.size());
+		bindOutlines();
+		gpuProgram->Use();
+		gpuProgram->setUniform(vec3(1.0f, 1.0f, 1.0f), "color"); // white
+		gpuProgram->setUniform(MVP, "MVP");
+		glDrawArrays(GL_POINTS, 0, mOutlinePoints.size());
+		printf("Drawn circle outline.\n");
+	}
+
+	void setCenter(vec3 wCenter) {
+		this->wCenter = wCenter;
+	}
+
+	void setRotation(float radRotation) {
+		this->radRotation = radRotation;
 	}
 
 private:
@@ -429,8 +462,8 @@ private:
 	unsigned int outlinesVBO;
 	unsigned int fillVAO;
 	unsigned int fillVBO;
-	vector<vec3> wCirclePoints;
-	vector<vec3> wOutlinePoints;
+	vector<vec3> mCirclePoints;
+	vector<vec3> mOutlinePoints;
 
 	/**
 	 * Bindolja a körvonal és a küllők VAO és VBO-ját.
@@ -465,7 +498,7 @@ public:
 		gpuProgram = new GPUProgram(vertSource, fragSource);
 
 		camera = new Camera(vec3(10.0f, 10.0f, 1.0f), 20.0f, 20.0f);
-		wheel = new Wheel(vec3(10.f, 10.f, 1.f), 1.f);
+		wheel = new Wheel(vec3(15.f, 10.f, 1.f), 1.f);
 
 		MVP = camera->projection() * camera->view();
 		invMVP = camera->invView() * camera->invProjection();
