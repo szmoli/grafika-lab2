@@ -186,11 +186,11 @@ public:
 			int resolution = 100;
 
 			float incrementation = knotValues.back() / (knotValues.size() * resolution);
-			printf("incrementation: %lf\n", incrementation);
+			// printf("incrementation: %lf\n", incrementation);
 
 			for (float t = 0; t <= knotValues.back(); t += incrementation) {
 				vec3 wCurvePoint = wR(t);
-				printf("curve point added: (%lf, %lf, %lf)\n", wCurvePoint.x, wCurvePoint.y, wCurvePoint.z);
+				// printf("curve point added: (%lf, %lf, %lf)\n", wCurvePoint.x, wCurvePoint.y, wCurvePoint.z);
 
 				wCurvePoints.push_back(wCurvePoint);
 			}
@@ -217,21 +217,17 @@ public:
 	void draw(GPUProgram* gpuProgram, mat4 MVP) {
 		// Görbe
 		bindCurvePoints();
-
 		gpuProgram->Use();
 		gpuProgram->setUniform(vec3(1.0f, 1.0f, 0.0f), "color"); // yellow
 		gpuProgram->setUniform(MVP, "MVP");
-
 		glDrawArrays(GL_LINE_STRIP, 0, wCurvePoints.size());
 		printf("Drawn curve.\n");
 		
 		// Kontroll pontok
-		bindControlPoints();
-		
+		bindControlPoints();		
 		gpuProgram->Use();
 		gpuProgram->setUniform(vec3(1.0f, 0.0f, 0.0f), "color"); // red
-		gpuProgram->setUniform(MVP, "MVP");
-		
+		gpuProgram->setUniform(MVP, "MVP");		
 		glDrawArrays(GL_POINTS, 0, wControlPoints.size());
 		printf("Drawn control points.\n");
 	}
@@ -271,7 +267,7 @@ private:
 	}
 
 	/**
-	 * Kiszámolja a Hermite interpolációs görbe érintő vektorát.
+	 * Kiszámolja a Hermite interpolációs görbe (érintő) sebesség vektorát.
 	 * 
 	 * @param p0 Első kontroll pont.
 	 * @param v0 Sebességvektor az első kontrollpontban.
@@ -282,7 +278,7 @@ private:
 	 * @param t  t paraméter, amihez tartozó pontot adja vissza
 	 * @return vec3 A t paraméterhez tartozó pont érintő vektor világ koordinátákban. 
 	 */
-	vec3 wHermiteTangent(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
+	vec3 wHermiteVelocity(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
 		float tDiff = t1 - t0;
 		vec3 a1 =	v0;
 		vec3 a2 =	(3.f * (p1 - p0) / (tDiff * tDiff)) - ((v1 + 2.f * v0) / (t1 - t0));
@@ -306,8 +302,30 @@ private:
 	 * @return vec3 A t paraméterhez tartozó normál vektor világ koordinátákban. 
 	 */
 	vec3 wHermiteNormal(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
-		vec3 tangent = wHermiteTangent(p0, v0, t0, p1, v1, t1, t);
+		vec3 tangent = wHermiteVelocity(p0, v0, t0, p1, v1, t1, t);
 		return vec3(-tangent.y, tangent.x, tangent.z);
+	}
+
+	/**
+	 * Kiszámolja a Hermite interpolációs görbe gyorsulási vektorát.
+	 * 
+	 * @param p0 Első kontroll pont.
+	 * @param v0 Sebességvektor az első kontrollpontban.
+	 * @param t0 t0 paraméter az első kontrollponthoz.
+	 * @param p1 Második kontroll pont.
+	 * @param v1 Sebességvektor az második kontrollpontban.
+	 * @param t1 t1 paraméter az második kontrollponthoz.
+	 * @param t  t paraméter, amihez tartozó pontot adja vissza
+	 * @return vec3 A t paraméterhez tartozó normál vektor világ koordinátákban. 
+	 */
+	vec3 wHermiteAcceleration(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
+		float tDiff = t1 - t0;
+		vec3 a2 =	(3.f * (p1 - p0) / (tDiff * tDiff)) - ((v1 + 2.f * v0) / (t1 - t0));
+		vec3 a3 =	(2.f * (p0 - p1) / (tDiff * tDiff * tDiff)) + ((v1 + v0) / (tDiff * tDiff));
+		
+		float dt = t - t0;
+		
+		return 6.f * a3 * dt + 2.f * a2;
 	}
 
 	/**
@@ -332,12 +350,103 @@ private:
  */
 class Wheel {
 public:
-	Wheel(vec3 wPosition) {
+	/**
+	 * Kerék konstruktor
+	 * @param wCenter Kezdő pozíció világ koordinátákban.
+	 * @param wRadius Kör sugara világ koordinátákban.
+	 */
+	Wheel(vec3 wCenter, float wRadius) {
+		glGenVertexArrays(1, &fillVAO);
+		glBindVertexArray(fillVAO);
+		glGenBuffers(1, &fillVBO);
 
+		glGenVertexArrays(1, &outlinesVAO);
+		glBindVertexArray(outlinesVAO);
+		glGenBuffers(1, &outlinesVBO);
+
+		this->wCenter = wCenter;
+		this->wRadius = wRadius;
+		radRotation = 0;
+	}
+
+	/**
+	 * Elforgatja a kereket a tárolt aktuális elfordulásával.
+	 */
+	mat4 model() {
+		return rotate(radRotation, vec3(0.f, 0.f, 1.f));
+	}
+
+	/**
+	 * Visszaforgatja a kereket alaphelyzetbe.
+	 */
+	mat4 invModel() {
+		return inverse(model());
+	}
+
+	/**
+	 * Szinkronizálja a kereket pontjait a GPU-ra.
+	 */
+	void sync() {
+		wCirclePoints.clear();
+
+		for (float phi = 0.f; phi < 360.f; ++phi) {
+			vec3 wPoint = vec3(wRadius * cos(radians(phi)) + wCenter.x, wRadius * sin(radians(phi)) + wCenter.y, 1.f);
+			wCirclePoints.push_back(wPoint);
+		}
+
+		// wCirclePoints.push_back(wCenter);
+
+		bindFill();
+		glBufferData(GL_ARRAY_BUFFER, wCirclePoints.size() * sizeof(vec3), wCirclePoints.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+		printf("Calculated and synced circle points.\n");
+
+		bindOutlines();
+	}
+
+	/**
+	 * Megrajzolja a kereket
+	 */
+	void draw(GPUProgram* gpuProgram, mat4 MVP) {		
+		bindFill();
+		gpuProgram->Use();
+		gpuProgram->setUniform(vec3(0.0f, 0.0f, 1.0f), "color"); // blue
+		// MVP = MVP * model();
+		gpuProgram->setUniform(MVP, "MVP");
+		glDrawArrays(GL_TRIANGLE_FAN, 0, wCirclePoints.size());
+		printf("Drawn circle.\n");
 	}
 
 private:
+	// Fizikai jellemzők
+	vec3 wCenter;
+	float wRadius;
+	float radRotation;
 
+	// OpenGL cuccok
+	unsigned int outlinesVAO;
+	unsigned int outlinesVBO;
+	unsigned int fillVAO;
+	unsigned int fillVBO;
+	vector<vec3> wCirclePoints;
+	vector<vec3> wOutlinePoints;
+
+	/**
+	 * Bindolja a körvonal és a küllők VAO és VBO-ját.
+	 */
+	void bindOutlines() {
+		glBindVertexArray(outlinesVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, outlinesVBO);
+	}
+
+	/**
+	 * Bindolja a kék kitöltés VAO és VBO-ját.
+	 */
+	void bindFill() {
+		glBindVertexArray(fillVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, fillVBO);
+	}
 };
 
 const int winWidth = 600, winHeight = 600;
@@ -346,6 +455,7 @@ class GreenTriangleApp : public glApp {
 	GPUProgram* gpuProgram;
 	Camera* camera;
 	Spline* spline;
+	Wheel* wheel;
 	mat4 MVP;
 	mat4 invMVP;
 public:
@@ -355,6 +465,8 @@ public:
 		gpuProgram = new GPUProgram(vertSource, fragSource);
 
 		camera = new Camera(vec3(10.0f, 10.0f, 1.0f), 20.0f, 20.0f);
+		wheel = new Wheel(vec3(10.f, 10.f, 1.f), 1.f);
+
 		MVP = camera->projection() * camera->view();
 		invMVP = camera->invView() * camera->invProjection();
 
@@ -371,6 +483,8 @@ public:
 
 		spline->sync();
 		spline->draw(gpuProgram, MVP);
+		wheel->sync();
+		wheel->draw(gpuProgram, MVP);
 	}
 
 	void onMousePressed(MouseButton but, int pX, int pY) {
