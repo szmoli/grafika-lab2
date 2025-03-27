@@ -127,9 +127,13 @@ public:
 	 * @return vec3 t paraméterhez tartozó pont helyvektora világ koordinátákban.
 	 */
 	vec3 wR(float t) {
+		if (wControlPoints.size() < 2) {
+			return vec3(NAN);
+		}
+
 		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
 			if (knotValues[i] <= t && t <= knotValues[i + 1]) {		
-				printf("Between CP%d and CP%d\n", i, i + 1);
+				// printf("Between CP%d and CP%d\n", i, i + 1);
 				
 				vec3 v0;
 				// Ha az első pontról van szó, akkor a sebesség vektor 0.
@@ -196,16 +200,12 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, wCurvePoints.size() * sizeof(vec3), wCurvePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-
 		printf("Calculated and synced curve points.\n");
 
-
 		bindControlPoints();
-
 		glBufferData(GL_ARRAY_BUFFER, wControlPoints.size() * sizeof(vec3), wControlPoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-
 		printf("Synced control points.\n");
 	}
 
@@ -325,6 +325,19 @@ private:
 		glBindVertexArray(curvePointsVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, curvePointsVBO);
 	}
+};
+
+/**
+ * Kerék osztály.
+ */
+class Wheel {
+public:
+	Wheel(vec3 wPosition) {
+
+	}
+
+private:
+
 };
 
 const int winWidth = 600, winHeight = 600;
