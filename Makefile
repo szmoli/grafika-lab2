@@ -9,7 +9,7 @@ target := app.out
 # libraries to link
 libs := glfw
 # g++ flags
-flags := -Wall -g -std=c++17 -fpermissive
+flags := -Wall -g -std=c++17 -fPIC -DPIC -fpermissive
 
 lib_flags := $(addprefix -l,$(libs))
 inc_flags := $(addprefix -I,$(inc_dir))
@@ -18,7 +18,7 @@ src_files := $(wildcard $(src_dir)/*.c) $(wildcard $(src_dir)/*.cpp)
 # default rule: build the target
 $(out_dir)/$(target): $(src_files)
 	mkdir -p $(out_dir)
-	g++ $(inc_flags) $^ $(lib_flags) -o $(out_dir)/$(target)
+	g++ $(inc_flags) $^ $(lib_flags) $(flags) -o $(out_dir)/$(target)
 
 # run the target, if it doesn't exist build it first
 run: $(out_dir)/$(target)

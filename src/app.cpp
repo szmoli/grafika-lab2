@@ -2,9 +2,10 @@
 // Z�ld h�romsz�g: A framework.h oszt�lyait felhaszn�l� megold�s
 //=============================================================================================
 #include "../inc/framework.h"
+#include <math.h>
 
-using namespace::glm;
-using namespace::std;
+// using namespace::glm;
+// using namespace::std;
 
 // cs�cspont �rnyal�
 const char * vertSource = R"(
@@ -124,7 +125,7 @@ public:
 		knotValues.push_back(currentKnotValue++); // Uniform paraméterezés szerint automatikusan növeli 1-el 0-tól kezdve a csomópontértékeket.
 
 		printf("Control points and knot values:\n");
-		for (int i = 0; i < wControlPoints.size(); ++i) {
+		for (unsigned int i = 0; i < wControlPoints.size(); ++i) {
 			printf("\tWorld space: (%lf, %lf): %lf\n", wControlPoints.at(i).x, wControlPoints.at(i).y, knotValues.at(i));
 		}
 	}
@@ -140,7 +141,7 @@ public:
 			return vec3(NAN);
 		}
 
-		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
+		for (unsigned int i = 0; i < wControlPoints.size() - 1; ++i) {
 			if (knotValues[i] <= t && t <= knotValues[i + 1]) {
 				vec3 v0 = controlPointVelocity(i);
 				vec3 v1 = controlPointVelocity(i + 1);
@@ -171,7 +172,7 @@ public:
 			return vec3(NAN);
 		}
 
-		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
+		for (unsigned int i = 0; i < wControlPoints.size() - 1; ++i) {
 			if (knotValues[i] <= t && t <= knotValues[i + 1]) {
 				vec3 v0 = controlPointVelocity(i);
 				vec3 v1 = controlPointVelocity(i + 1);
@@ -202,12 +203,43 @@ public:
 			return vec3(NAN);
 		}
 
-		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
+		for (unsigned int i = 0; i < wControlPoints.size() - 1; ++i) {
 			if (knotValues[i] <= t && t <= knotValues[i + 1]) {
 				vec3 v0 = controlPointVelocity(i);
 				vec3 v1 = controlPointVelocity(i + 1);
 
 				return wHermiteVelocity(
+					wControlPoints.at(i),
+					v0,
+					knotValues.at(i),
+					wControlPoints.at(i + 1),
+					v1,
+					knotValues.at(i + 1),
+					t
+				);
+			}
+		}
+
+		return vec3(NAN);
+	}
+
+	/**
+	 * Megadja a t paraméterhez tartozó pont gyorsulás vektorát világ koordinátákban.
+	 * 
+	 * @param t Szabad paramáter.
+	 * @return vec3 t paraméterhez tartozó pont gyorsulás vektora világ koordinátákban.
+	 */
+	vec3 wAcceleration(float t) {
+		if (wControlPoints.size() < 2) {
+			return vec3(NAN);
+		}
+
+		for (unsigned int i = 0; i < wControlPoints.size() - 1; ++i) {
+			if (knotValues[i] <= t && t <= knotValues[i + 1]) {
+				vec3 v0 = controlPointVelocity(i);
+				vec3 v1 = controlPointVelocity(i + 1);
+
+				return wHermiteAcceleration(
 					wControlPoints.at(i),
 					v0,
 					knotValues.at(i),
@@ -284,9 +316,9 @@ private:
 	unsigned int curvePointsVAO;
 	unsigned int curvePointsVBO;
 	unsigned int currentKnotValue;
-	vector<vec3> wControlPoints;
-	vector<vec3> wCurvePoints;
-	vector<float> knotValues;
+	std::vector<vec3> wControlPoints;
+	std::vector<vec3> wCurvePoints;
+	std::vector<float> knotValues;
 
 	/**
 	 * Kiszámolja a sebesség vektort a sorszámmal megadott kontroll ponthoz.
@@ -294,7 +326,7 @@ private:
 	 * @param i Kontroll pont sorszáma
 	 * @return vec3 Kontrollpont sebesség vektora
 	 */
-	vec3 controlPointVelocity(int i) {
+	vec3 controlPointVelocity(unsigned int i) {
 		// Első vagy utolsó pont fixen zérus sebesség vektorral.
 		if (i == 0 || i == wControlPoints.size() - 1) {
 			return vec3(0.f, 0.f, 0.f);
@@ -407,7 +439,7 @@ private:
 };
 
 enum class WheelState {
-	IDLE, MOVING, FALLING
+	INIT, IDLE, MOVING, FALLING
 };
 
 /**
@@ -427,8 +459,9 @@ public:
 		wRadius = 1.0;
 		degAlpha = 0.f;
 		degOmega = vec3(0.f, 0.f, 0.f);
-		state = WheelState::IDLE;
+		state = WheelState::INIT;
 		this->spline = spline;
+		tau = 0.001f;
 
 		// grafika
 		glGenVertexArrays(1, &fillVAO);
@@ -448,9 +481,9 @@ public:
 		float multiplier = 360 / resolution;
 		for (int phi = 0; phi < resolution; ++phi) {
 			float actualPhi = (float)phi * multiplier;
-			printf("phi: %d\nactualPhi: %lf\n", phi, actualPhi);
-			vec3 mPoint = vec3(wRadius * cos(radians(actualPhi)), wRadius * sin(radians(actualPhi)), 1.f);
-			printf("mPoint: (%lf, %lf, %lf)\n", mPoint.x, mPoint.y, mPoint.z);
+			// printf("phi: %d\nactualPhi: %lf\n", phi, actualPhi);
+			vec3 mPoint = vec3(wRadius * cos(inRadians(actualPhi)), wRadius * sin(inRadians(actualPhi)), 1.f);
+			// printf("mPoint: (%lf, %lf, %lf)\n", mPoint.x, mPoint.y, mPoint.z);
 			mCirclePoints.push_back(mPoint);	// fillhez
 			mOutlinePoints.push_back(mPoint);	// körvonalhoz
 		}
@@ -465,11 +498,70 @@ public:
 	/**
 	 * A kereket a kezdő pozícióba helyezi, amit a spline alapján számít ki.
 	 */
-	void moveToStartPos() {
+	void reset() {
 		float startT = 0.01f;
 		vec3 wSplineR = spline->wR(startT);
 		vec3 wSplineNormal = spline->wNormal(startT);
 		wCenter = wSplineR + wSplineNormal * wRadius;
+		wVelocity = vec3(0.f, 0.f, 0.f);
+		state = WheelState::IDLE;
+	}
+
+	/**
+	 * Elindítja a kerék mozgását.
+	 */
+	void start() {
+		if (state != WheelState::IDLE) {
+			return;
+		}
+
+		printf("Wheel started moving.\n");
+		state = WheelState::MOVING;
+	}
+
+	/**
+	 * Mozgatja a kereket. Itt van a fizikai szimuláció implementálva.
+	 * @param t Idő paraméter
+	 */
+	void move(float dt) {
+		if (state != WheelState::MOVING && state != WheelState::FALLING) {
+			return;
+		}
+
+		// getchar();
+		printf("dt: %lf\n", dt);
+
+		float m = 1.f; 							// kerék tömege
+		vec3 wG = vec3(0.f, 4.f, 0.f);			// gravitációs gyorsulás
+		vec3 wA_s = spline->wAcceleration(tau);	// spline gyorsulás vektor
+		vec3 wN_s = spline->wNormal(tau);		// spline normál vektor
+		vec3 wV_s = spline->wVelocity(tau);		// spline sebesség vektor
+		vec3 wR_s = spline->wR(tau);			// spline és kerék érintkezési pontja
+
+		float wV_sLen = length(wV_s);
+		vec3 wKappa = (wA_s * wN_s) / (wV_sLen * wV_sLen);			// görbület
+		vec3 wK = m * ((wG * wN_s) + ((wV_s * wV_s) * wKappa));		// kényszererő
+
+		vec3 wUnsquaredV = (2.f * wG * (spline->wR(0.f).y - wR_s.y)) / (1.5f);
+		wVelocity = vec3(sqrtf(wUnsquaredV.x), sqrtf(wUnsquaredV.y), sqrtf(wUnsquaredV.z));
+		wCenter = wR_s + wN_s * wRadius;
+		
+		float dTau = length((wVelocity * dt) / length(wV_s));
+		tau += dTau;
+		
+
+		// wCenter = wR_s + wN_s * wRadius;
+
+		
+
+		// vec3 wA_w = wG + (wK * wN_s) / (m);							// kerék gyorsulás vektor
+		// wVelocity = wVelocity + wA_w * dt;							// kerék sebesség vektor
+		// wCenter = wCenter + wVelocity * dt + 0.5f * wA_w * (dt * dt);	// kerék pozíció	
+		// tau = tau + (length(wVelocity) * dt) / wV_sLen;
+
+		printf("dTau: %lf\n", dTau);
+		printf("wVelocity: (%lf, %lf, %lf)\n", wVelocity.x, wVelocity.y, wVelocity.z);
+		printf("wCenter: (%lf, %lf, %lf)\n", wCenter.x, wCenter.y, wCenter.z);
 	}
 
 	/**
@@ -477,13 +569,6 @@ public:
 	 */
 	mat4 model() {
 		return translate(vec3(wCenter.x, wCenter.y, 0.f)) * rotate(degAlpha, vec3(0.f, 0.f, 1.f));
-	}
-
-	/**
-	 * Visszaforgatja a kereket alaphelyzetbe.
-	 */
-	mat4 invModel() {
-		return inverse(model());
 	}
 
 	/**
@@ -509,8 +594,12 @@ public:
 		printf("Synced circle spoke points.\n");
 	}
 
-	void start() {
-
+	/**
+	 * Visszaadja a kerék állapotát.
+	 * @return WheelState kerékállapot
+	 */
+	WheelState getState() {
+		return state;
 	}
 
 	/**
@@ -553,20 +642,21 @@ private:
 	vec3 degOmega;		// szögsebesség
 	WheelState state;	// állapot
 	Spline* spline;		// pálya referencia
+	float tau;			// görbe paraméter
 
 	// OpenGL cuccok
 	// Kerék körvonal
 	unsigned int outlinesVAO;
 	unsigned int outlinesVBO;	
-	vector<vec3> mOutlinePoints;
+	std::vector<vec3> mOutlinePoints;
 	// Kerék küllők
 	unsigned int spokesVAO;
 	unsigned int spokesVBO;		
-	vector<vec3> mSpokePoints;
+	std::vector<vec3> mSpokePoints;
 	// Kerék kitöltés
 	unsigned int fillVAO;
 	unsigned int fillVBO;		
-	vector<vec3> mCirclePoints;
+	std::vector<vec3> mCirclePoints;
 
 	/**
 	 * Bindolja a körvonal és a küllők VAO és VBO-ját.
@@ -588,6 +678,10 @@ private:
 		glBindVertexArray(spokesVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, spokesVBO);
 	}
+
+	float inRadians(float degrees) {
+		return degrees * (M_PI / 180.f);
+	}
 };
 
 const int winWidth = 600, winHeight = 600;
@@ -599,16 +693,17 @@ class GreenTriangleApp : public glApp {
 	Wheel* wheel;
 	mat4 MVP;
 	mat4 invMVP;
+	float time;
 public:
 	GreenTriangleApp() : glApp("Lab2") { }
 
-	void onInitialization() {
-		gpuProgram = new GPUProgram(vertSource, fragSource);
-		
+	void onInitialization() override {
+		gpuProgram = new GPUProgram(vertSource, fragSource);		
 		spline = new Spline();
 		wheel = new Wheel(spline);
 		camera = new Camera(vec3(10.0f, 10.0f, 1.0f), 20.0f, 20.0f);
 
+		time = 0.0f;
 		MVP = camera->projection() * camera->view();
 		invMVP = camera->invView() * camera->invProjection();
 
@@ -616,7 +711,7 @@ public:
 		glPointSize(10);
 	}
 
-	void onDisplay() {
+	void onDisplay() override {
 		glClearColor(0, 0, 0, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glViewport(0, 0, winWidth, winHeight);
@@ -627,7 +722,7 @@ public:
 		wheel->draw(gpuProgram, MVP);
 	}
 
-	void onMousePressed(MouseButton but, int pX, int pY) {
+	void onMousePressed(MouseButton but, int pX, int pY) override {
 		// Screen space point
 		vec4 pPoint((float) pX, (float) pY, 1.0f, 1.0f);
 
@@ -641,22 +736,45 @@ public:
 
 		// World space point
 		vec4 wPoint = invMVP * vec4(cPoint.x, cPoint.y, 1.0f, 1.0f);
-		spline->addControlPoint(wPoint);
+		spline->addControlPoint(vec3(wPoint.x, wPoint.y, wPoint.z));
 		
 		// Clip space point again
-		vec4 cPointAgain = MVP * wPoint;
+		// vec4 cPointAgain = MVP * wPoint;
 		
 		if (spline->controlPointsCount() == 2) {
-			wheel->moveToStartPos();
+			wheel->reset();
 		}
 
 		refreshScreen();
 	}
+
+	void onKeyboard(int key) override {
+		switch (key) {
+			case 32:
+				if (wheel->getState() != WheelState::IDLE) {
+					return;
+				}
+				wheel->start();
+				break;
+
+			default:
+				break;
+		}
+	}
 	
-	// void onTimeElapsed(float startTime, float endTime) {
-	// 	float dt = endTime - startTime;
-	// 	printf("dt: %lf\n", dt);
-	// }
+	void onTimeElapsed(float startTime, float endTime) override {
+		if (wheel->getState() != WheelState::MOVING && wheel->getState() != WheelState::FALLING) {
+			return;
+		}
+
+		printf("on time elapsed\n");
+
+		float dt = endTime - startTime;
+		time += dt;
+
+		wheel->move(dt);
+		refreshScreen();
+	}
 };
 
 GreenTriangleApp app;
