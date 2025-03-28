@@ -106,6 +106,15 @@ public:
 	}
 
 	/**
+	 * Visszaadja a kontroll pontok számát.
+	 * 
+	 * @return unsigned int Kontrollpontok száma.
+	 */
+	unsigned int controlPointsCount() {
+		return wControlPoints.size();
+	}
+
+	/**
 	 * Hozzáad egy új kontrol pontot világ koordináták szerint uniform paraméterezés szerint automatikusan számított csomópont értékkel.
 	 * 
 	 * @param wP Pont világ koordinátákkal.
@@ -132,36 +141,73 @@ public:
 		}
 
 		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
-			if (knotValues[i] <= t && t <= knotValues[i + 1]) {		
-				// printf("Between CP%d and CP%d\n", i, i + 1);
-				
-				vec3 v0;
-				// Ha az első pontról van szó, akkor a sebesség vektor 0.
-				if (i == 0) {
-					v0 = vec3(0.f ,0.f, 0.f);
-				}
-				else {
-					v0 = 	0.5f * 
-							(((wControlPoints.at(i + 1) - wControlPoints.at(i)) / 
-							(knotValues.at(i + 1) - knotValues.at(i))) +
-							((wControlPoints.at(i) - wControlPoints.at(i - 1)) /
-							(knotValues.at(i) - knotValues.at(i - 1))));
-				}
-
-				vec3 v1;
-				// Ha az utolsó pontról van szó, akkor a sebesség vektor 0.
-				if (i + 1 == wControlPoints.size() - 1) {
-					v1 = vec3(0.f, 0.f, 0.f);
-				} 
-				else {
-					v1 = 0.5f * 
-						(((wControlPoints.at(i + 2) - wControlPoints.at(i + 1)) /
-						(knotValues.at(i + 2) - knotValues.at(i + 1))) +
-						((wControlPoints.at(i + 1) - wControlPoints.at(i)) /
-						(knotValues.at(i + 1) - knotValues.at(i))));
-				}
+			if (knotValues[i] <= t && t <= knotValues[i + 1]) {
+				vec3 v0 = controlPointVelocity(i);
+				vec3 v1 = controlPointVelocity(i + 1);
 
 				return wHermite(
+					wControlPoints.at(i),
+					v0,
+					knotValues.at(i),
+					wControlPoints.at(i + 1),
+					v1,
+					knotValues.at(i + 1),
+					t
+				);
+			}
+		}
+
+		return vec3(NAN);
+	}
+
+	/**
+	 * Megadja a t paraméterhez tartozó pont normálvektorát világ koordinátákban.
+	 * 
+	 * @param t Szabad paramáter.
+	 * @return vec3 t paraméterhez tartozó pont normálvektora világ koordinátákban.
+	 */
+	vec3 wNormal(float t) {
+		if (wControlPoints.size() < 2) {
+			return vec3(NAN);
+		}
+
+		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
+			if (knotValues[i] <= t && t <= knotValues[i + 1]) {
+				vec3 v0 = controlPointVelocity(i);
+				vec3 v1 = controlPointVelocity(i + 1);
+
+				return wHermiteNormal(
+					wControlPoints.at(i),
+					v0,
+					knotValues.at(i),
+					wControlPoints.at(i + 1),
+					v1,
+					knotValues.at(i + 1),
+					t
+				);
+			}
+		}
+
+		return vec3(NAN);
+	}
+
+	/**
+	 * Megadja a t paraméterhez tartozó pont sebesség vektorát világ koordinátákban.
+	 * 
+	 * @param t Szabad paramáter.
+	 * @return vec3 t paraméterhez tartozó pont sebesség vektora világ koordinátákban.
+	 */
+	vec3 wVelocity(float t) {
+		if (wControlPoints.size() < 2) {
+			return vec3(NAN);
+		}
+
+		for (int i = 0; i < wControlPoints.size() - 1; ++i) {
+			if (knotValues[i] <= t && t <= knotValues[i + 1]) {
+				vec3 v0 = controlPointVelocity(i);
+				vec3 v1 = controlPointVelocity(i + 1);
+
+				return wHermiteVelocity(
 					wControlPoints.at(i),
 					v0,
 					knotValues.at(i),
@@ -241,6 +287,21 @@ private:
 	vector<vec3> wControlPoints;
 	vector<vec3> wCurvePoints;
 	vector<float> knotValues;
+
+	/**
+	 * Kiszámolja a sebesség vektort a sorszámmal megadott kontroll ponthoz.
+	 * 
+	 * @param i Kontroll pont sorszáma
+	 * @return vec3 Kontrollpont sebesség vektora
+	 */
+	vec3 controlPointVelocity(int i) {
+		// Első vagy utolsó pont fixen zérus sebesség vektorral.
+		if (i == 0 || i == wControlPoints.size() - 1) {
+			return vec3(0.f, 0.f, 0.f);
+		}
+
+		return 0.5f * (((wControlPoints.at(i + 1) - wControlPoints.at(i)) / (knotValues.at(i + 1) - knotValues.at(i))) + ((wControlPoints.at(i) - wControlPoints.at(i - 1)) / (knotValues.at(i) - knotValues.at(i - 1))));
+	}
 
 	/**
 	 * Kiszámolja a t paraméterhez tartozó pont helyvektorát, ami a p0-p1 Hermite interpolációs görbére esik.
@@ -345,6 +406,10 @@ private:
 	}
 };
 
+enum class WheelState {
+	IDLE, MOVING, FALLING
+};
+
 /**
  * Kerék osztály.
  */
@@ -355,7 +420,7 @@ public:
 	 * @param wCenter Kezdő pozíció világ koordinátákban.
 	 * @param wRadius Kör sugara világ koordinátákban.
 	 */
-	Wheel(vec3 wCenter, float wRadius) {
+	Wheel(Spline *spline) {
 		glGenVertexArrays(1, &fillVAO);
 		glBindVertexArray(fillVAO);
 		glGenBuffers(1, &fillVBO);
@@ -367,10 +432,6 @@ public:
 		glGenVertexArrays(1, &spokesVAO);
 		glBindVertexArray(spokesVAO);		
 		glGenBuffers(1, &spokesVBO);
-
-		this->wCenter = wCenter;
-		this->wRadius = wRadius;
-		radRotation = 0;
 
 		// Körvonal pontjainak kiszámítása
 		int resolution = 15;
@@ -388,13 +449,27 @@ public:
 		mSpokePoints.push_back(vec3(0.f, -1.f, 1.f));
 		mSpokePoints.push_back(vec3(1.f, 0.f, 1.f));
 		mSpokePoints.push_back(vec3(-1.f, 0.f, 1.f));
+
+		// fizika
+		wCenter = vec3(NAN);
+		wVelocity = vec3(0.f, 0.f, 0.f);
+		wRadius = 1.0;
+		degAlpha = 0.f;
+		degOmega = vec3(0.f, 0.f, 0.f);
+		state = WheelState::IDLE;
+		this->spline = spline;
+	}
+
+	void moveToStartPos() {
+		vec3 wSplineR = spline->wR(0.01f);
+		
 	}
 
 	/**
 	 * Elforgatja a kereket a tárolt aktuális elfordulásával.
 	 */
 	mat4 model() {
-		return translate(vec3(wCenter.x, wCenter.y, 0.f)) * rotate(radRotation, vec3(0.f, 0.f, 1.f));
+		return translate(vec3(wCenter.x, wCenter.y, 0.f)) * rotate(degAlpha, vec3(0.f, 0.f, 1.f));
 	}
 
 	/**
@@ -427,6 +502,10 @@ public:
 		printf("Synced circle spoke points.\n");
 	}
 
+	void start() {
+
+	}
+
 	/**
 	 * Megrajzolja a kereket.
 	 */
@@ -450,30 +529,37 @@ public:
 		printf("Drawn wheel spokes.\n");
 	}
 
-	void setCenter(vec3 wCenter) {
-		this->wCenter = wCenter;
-	}
+	// void setCenter(vec3 wCenter) {
+	// 	this->wCenter = wCenter;
+	// }
 
-	void setRotation(float radRotation) {
-		this->radRotation = radRotation;
-	}
+	// void setRotation(float degAlpha) {
+	// 	this->degAlpha = degAlpha;
+	// }
 
 private:
 	// Fizikai jellemzők
-	vec3 wCenter;
-	float wRadius;
-	float radRotation;
+	vec3 wCenter;		// pozíció
+	vec3 wVelocity;		// sebesség
+	float wRadius;		// sugár
+	float degAlpha;		// elfordulási szög
+	vec3 degOmega;		// szögsebesség
+	WheelState state;	// állapot
+	Spline* spline;		// pálya referencia
 
 	// OpenGL cuccok
+	// Kerék körvonal
 	unsigned int outlinesVAO;
-	unsigned int outlinesVBO;	// kerék körvonala
-	unsigned int spokesVAO;
-	unsigned int spokesVBO;		// kerék küllők
-	unsigned int fillVAO;
-	unsigned int fillVBO;
-	vector<vec3> mCirclePoints;
+	unsigned int outlinesVBO;	
 	vector<vec3> mOutlinePoints;
+	// Kerék küllők
+	unsigned int spokesVAO;
+	unsigned int spokesVBO;		
 	vector<vec3> mSpokePoints;
+	// Kerék kitöltés
+	unsigned int fillVAO;
+	unsigned int fillVBO;		
+	vector<vec3> mCirclePoints;
 
 	/**
 	 * Bindolja a körvonal és a küllők VAO és VBO-ját.
@@ -511,14 +597,13 @@ public:
 
 	void onInitialization() {
 		gpuProgram = new GPUProgram(vertSource, fragSource);
-
+		
+		spline = new Spline();
+		wheel = new Wheel(spline);
 		camera = new Camera(vec3(10.0f, 10.0f, 1.0f), 20.0f, 20.0f);
-		wheel = new Wheel(vec3(15.f, 10.f, 1.f), 1.f);
 
 		MVP = camera->projection() * camera->view();
 		invMVP = camera->invView() * camera->invProjection();
-
-		spline = new Spline();
 
 		glLineWidth(3);
 		glPointSize(10);
@@ -554,14 +639,17 @@ public:
 		// Clip space point again
 		vec4 cPointAgain = MVP * wPoint;
 		
-		// printf("Clicked (in device coordinates): (%d, %d)\n", pX, pY);
-		// printf("Clicked (in clip coordinates): (%lf, %lf)\n", cPoint.x, cPoint.y);
-		// printf("Clicked (in world coordinates): (%lf, %lf)\n", wPoint.x, wPoint.y);
-		// printf("Transformed to clip space again: (%lf, %lf)\n", cPointAgain.x, cPointAgain.y);
+		if (spline->controlPointsCount() == 2) {
+			wheel->moveToStartPos();
+		}
 
 		refreshScreen();
 	}
 	
+	// void onTimeElapsed(float startTime, float endTime) {
+	// 	float dt = endTime - startTime;
+	// 	printf("dt: %lf\n", dt);
+	// }
 };
 
 GreenTriangleApp app;
