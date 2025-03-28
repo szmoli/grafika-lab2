@@ -767,12 +767,15 @@ public:
 			return;
 		}
 
-		printf("on time elapsed\n");
+		printf("start: %lf, end: %lf\n", startTime, endTime);
+		// getchar();
 
-		float dt = endTime - startTime;
-		time += dt;
-
-		wheel->move(dt);
+		float dt = 0.01f;
+		for (float t = startTime; t < endTime; t += dt) {
+			float Dt = fmin(dt, endTime - t);
+			wheel->move(dt);
+		}
+		
 		refreshScreen();
 	}
 };
