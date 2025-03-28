@@ -421,6 +421,16 @@ public:
 	 * @param wRadius Kör sugara világ koordinátákban.
 	 */
 	Wheel(Spline *spline) {
+		// fizika
+		wCenter = vec3(NAN);
+		wVelocity = vec3(0.f, 0.f, 0.f);
+		wRadius = 1.0;
+		degAlpha = 0.f;
+		degOmega = vec3(0.f, 0.f, 0.f);
+		state = WheelState::IDLE;
+		this->spline = spline;
+
+		// grafika
 		glGenVertexArrays(1, &fillVAO);
 		glBindVertexArray(fillVAO);
 		glGenBuffers(1, &fillVBO);
@@ -438,6 +448,7 @@ public:
 		float multiplier = 360 / resolution;
 		for (int phi = 0; phi < resolution; ++phi) {
 			float actualPhi = (float)phi * multiplier;
+			printf("phi: %d\nactualPhi: %lf\n", phi, actualPhi);
 			vec3 mPoint = vec3(wRadius * cos(radians(actualPhi)), wRadius * sin(radians(actualPhi)), 1.f);
 			printf("mPoint: (%lf, %lf, %lf)\n", mPoint.x, mPoint.y, mPoint.z);
 			mCirclePoints.push_back(mPoint);	// fillhez
@@ -449,20 +460,16 @@ public:
 		mSpokePoints.push_back(vec3(0.f, -1.f, 1.f));
 		mSpokePoints.push_back(vec3(1.f, 0.f, 1.f));
 		mSpokePoints.push_back(vec3(-1.f, 0.f, 1.f));
-
-		// fizika
-		wCenter = vec3(NAN);
-		wVelocity = vec3(0.f, 0.f, 0.f);
-		wRadius = 1.0;
-		degAlpha = 0.f;
-		degOmega = vec3(0.f, 0.f, 0.f);
-		state = WheelState::IDLE;
-		this->spline = spline;
 	}
 
+	/**
+	 * A kereket a kezdő pozícióba helyezi, amit a spline alapján számít ki.
+	 */
 	void moveToStartPos() {
-		vec3 wSplineR = spline->wR(0.01f);
-		
+		float startT = 0.01f;
+		vec3 wSplineR = spline->wR(startT);
+		vec3 wSplineNormal = spline->wNormal(startT);
+		wCenter = wSplineR + wSplineNormal * wRadius;
 	}
 
 	/**
