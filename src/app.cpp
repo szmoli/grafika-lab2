@@ -457,8 +457,8 @@ public:
 		wCenter = vec3(NAN);
 		wVelocity = vec3(0.f, 0.f, 0.f);
 		wRadius = 1.0;
-		degAlpha = 0.f;
-		degOmega = vec3(0.f, 0.f, 0.f);
+		radAlpha = 0.f;
+		radOmega = 0.f;
 		state = WheelState::INIT;
 		this->spline = spline;
 		tau = 0.001f;
@@ -482,6 +482,7 @@ public:
 		for (int phi = 0; phi < resolution; ++phi) {
 			float actualPhi = (float)phi * multiplier;
 			// printf("phi: %d\nactualPhi: %lf\n", phi, actualPhi);
+			// vec3 mPoint = vec3(wRadius * cos(inRadians(actualPhi)), wRadius * sin(inRadians(actualPhi)), 1.f);
 			vec3 mPoint = vec3(wRadius * cos(inRadians(actualPhi)), wRadius * sin(inRadians(actualPhi)), 1.f);
 			// printf("mPoint: (%lf, %lf, %lf)\n", mPoint.x, mPoint.y, mPoint.z);
 			mCirclePoints.push_back(mPoint);	// fillhez
@@ -528,10 +529,9 @@ public:
 			return;
 		}
 
-		// getchar();
 		printf("dt: %lf\n", dt);
 
-		float m = 1.f; 							// kerék tömege
+		float m = 10.f; 						// kerék tömege
 		vec3 wG = vec3(0.f, 4.f, 0.f);			// gravitációs gyorsulás
 		vec3 wA_s = spline->wAcceleration(tau);	// spline gyorsulás vektor
 		vec3 wN_s = spline->wNormal(tau);		// spline normál vektor
@@ -541,6 +541,12 @@ public:
 		float wV_sLen = length(wV_s);
 		vec3 wKappa = (wA_s * wN_s) / (wV_sLen * wV_sLen);			// görbület
 		vec3 wK = m * ((wG * wN_s) + ((wV_s * wV_s) * wKappa));		// kényszererő
+
+		float I = m * wRadius * wRadius;  						// tehetetlenségi nyomaték
+		float torque = wCenter.x * wK.y - wCenter.y * wK.x;     // forgatónyomaték
+		float radBeta = torque / I;								// szöggyorsulás
+		radAlpha = radAlpha + radBeta * dt;						// elfordulási szög
+		radOmega = radAlpha * dt + 0.5f * radBeta * dt * dt;	// szögsebesség
 
 		vec3 wUnsquaredV = (2.f * wG * (spline->wR(0.f).y - wR_s.y)) / (1.5f);
 		wVelocity = vec3(sqrtf(wUnsquaredV.x), sqrtf(wUnsquaredV.y), sqrtf(wUnsquaredV.z));
@@ -568,7 +574,7 @@ public:
 	 * Elforgatja a kereket a tárolt aktuális elfordulásával.
 	 */
 	mat4 model() {
-		return translate(vec3(wCenter.x, wCenter.y, 0.f)) * rotate(degAlpha, vec3(0.f, 0.f, 1.f));
+		return translate(vec3(wCenter.x, wCenter.y, 0.f)) * rotate(radAlpha, vec3(0.f, 0.f, 1.f));
 	}
 
 	/**
@@ -625,21 +631,13 @@ public:
 		printf("Drawn wheel spokes.\n");
 	}
 
-	// void setCenter(vec3 wCenter) {
-	// 	this->wCenter = wCenter;
-	// }
-
-	// void setRotation(float degAlpha) {
-	// 	this->degAlpha = degAlpha;
-	// }
-
 private:
 	// Fizikai jellemzők
 	vec3 wCenter;		// pozíció
 	vec3 wVelocity;		// sebesség
 	float wRadius;		// sugár
-	float degAlpha;		// elfordulási szög
-	vec3 degOmega;		// szögsebesség
+	float radAlpha;		// elfordulási szög
+	float radOmega;		// szögsebesség
 	WheelState state;	// állapot
 	Spline* spline;		// pálya referencia
 	float tau;			// görbe paraméter
