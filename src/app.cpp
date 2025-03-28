@@ -363,10 +363,31 @@ public:
 		glGenVertexArrays(1, &outlinesVAO);
 		glBindVertexArray(outlinesVAO);
 		glGenBuffers(1, &outlinesVBO);
+		
+		glGenVertexArrays(1, &spokesVAO);
+		glBindVertexArray(spokesVAO);		
+		glGenBuffers(1, &spokesVBO);
 
 		this->wCenter = wCenter;
 		this->wRadius = wRadius;
 		radRotation = 0;
+
+		// Körvonal pontjainak kiszámítása
+		int resolution = 15;
+		float multiplier = 360 / resolution;
+		for (int phi = 0; phi < resolution; ++phi) {
+			float actualPhi = (float)phi * multiplier;
+			vec3 mPoint = vec3(wRadius * cos(radians(actualPhi)), wRadius * sin(radians(actualPhi)), 1.f);
+			printf("mPoint: (%lf, %lf, %lf)\n", mPoint.x, mPoint.y, mPoint.z);
+			mCirclePoints.push_back(mPoint);	// fillhez
+			mOutlinePoints.push_back(mPoint);	// körvonalhoz
+		}
+
+		// küllők
+		mSpokePoints.push_back(vec3(0.f, 1.f, 1.f));
+		mSpokePoints.push_back(vec3(0.f, -1.f, 1.f));
+		mSpokePoints.push_back(vec3(1.f, 0.f, 1.f));
+		mSpokePoints.push_back(vec3(-1.f, 0.f, 1.f));
 	}
 
 	/**
@@ -384,63 +405,49 @@ public:
 	}
 
 	/**
-	 * Szinkronizálja a kereket pontjait a GPU-ra.
+	 * Szinkronizálja a kerék pontjait a GPU-ra.
 	 */
 	void sync() {
-		mCirclePoints.clear();
-		mOutlinePoints.clear();
-
-		// Körvonal pontjainak kiszámítása
-		int resolution = 15;
-		float multiplier = 360 / resolution;
-		for (int phi = 0; phi < resolution; ++phi) {
-			float actualPhi = (float)phi * multiplier;
-			vec3 mPoint = vec3(wRadius * cos(radians(actualPhi)), wRadius * sin(radians(actualPhi)), 1.f);
-			mCirclePoints.push_back(mPoint);
-			// wOutlinePoints.push_back(wPoint);
-		}
-
-		// TODO: linestrip körvonalnak és kettő szakasz kerék cuccnak
-
-		vec3 mCenter = vec3(0.f, 0.f, 1.f); 
-		vec4 mwCenter = model() * vec4(mCenter.x, mCenter.y, mCenter.z, 1.f);
-		printf("mCenter to wCenter: (%lf, %lf, %lf)\n", mwCenter.x, mwCenter.y, mwCenter.z);
-		mOutlinePoints.push_back(mCenter);
-		// wOutlinePoints.push_
-
 		bindFill();
 		glBufferData(GL_ARRAY_BUFFER, mCirclePoints.size() * sizeof(vec3), mCirclePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		printf("Calculated and synced circle fill points.\n");
+		printf("Synced circle fill points.\n");
 
 		bindOutlines();
 		glBufferData(GL_ARRAY_BUFFER, mOutlinePoints.size() * sizeof(vec3), mOutlinePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		printf("Calculated and synced circle outline points.\n");
+		printf("Synced circle outline points.\n");
+
+		bindSpokes();
+		glBufferData(GL_ARRAY_BUFFER, mSpokePoints.size() * sizeof(vec3), mSpokePoints.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+		printf("Synced circle spoke points.\n");
 	}
 
 	/**
-	 * Megrajzolja a kereket
+	 * Megrajzolja a kereket.
 	 */
 	void draw(GPUProgram* gpuProgram, mat4 MVP) {		
 		MVP = MVP * model();
-
-		bindFill();
 		gpuProgram->Use();
+		gpuProgram->setUniform(MVP, "MVP");
+
 		gpuProgram->setUniform(vec3(0.0f, 0.0f, 1.0f), "color"); // blue
-		gpuProgram->setUniform(MVP, "MVP");
+		bindFill();
 		glDrawArrays(GL_TRIANGLE_FAN, 0, mCirclePoints.size());
-		printf("Drawn circle fill.\n");
-
-		// printf("points: %d\n", wCirclePoints.size());
-		bindOutlines();
-		gpuProgram->Use();
+		printf("Drawn wheel fill.\n");
+		
 		gpuProgram->setUniform(vec3(1.0f, 1.0f, 1.0f), "color"); // white
-		gpuProgram->setUniform(MVP, "MVP");
-		glDrawArrays(GL_POINTS, 0, mOutlinePoints.size());
-		printf("Drawn circle outline.\n");
+		bindOutlines();
+		glDrawArrays(GL_LINE_LOOP, 0, mOutlinePoints.size());
+		printf("Drawn wheel outline.\n");
+
+		bindSpokes();
+		glDrawArrays(GL_LINES, 0, mSpokePoints.size());
+		printf("Drawn wheel spokes.\n");
 	}
 
 	void setCenter(vec3 wCenter) {
@@ -459,11 +466,14 @@ private:
 
 	// OpenGL cuccok
 	unsigned int outlinesVAO;
-	unsigned int outlinesVBO;
+	unsigned int outlinesVBO;	// kerék körvonala
+	unsigned int spokesVAO;
+	unsigned int spokesVBO;		// kerék küllők
 	unsigned int fillVAO;
 	unsigned int fillVBO;
 	vector<vec3> mCirclePoints;
 	vector<vec3> mOutlinePoints;
+	vector<vec3> mSpokePoints;
 
 	/**
 	 * Bindolja a körvonal és a küllők VAO és VBO-ját.
@@ -479,6 +489,11 @@ private:
 	void bindFill() {
 		glBindVertexArray(fillVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, fillVBO);
+	}
+
+	void bindSpokes() {
+		glBindVertexArray(spokesVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, spokesVBO);
 	}
 };
 
