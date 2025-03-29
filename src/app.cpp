@@ -263,7 +263,8 @@ public:
 			wCurvePoints.clear();
 			int resolution = 100;
 
-			float incrementation = knotValues.back() / (knotValues.size() * resolution);
+			float incrementation = knotValues.back() / resolution;
+			// float incrementation = knotValues.back() / (knotValues.size() * resolution);
 			// printf("incrementation: %lf\n", incrementation);
 
 			for (float t = 0; t <= knotValues.back(); t += incrementation) {
@@ -379,7 +380,7 @@ private:
 
 		float dt = t - t0;
 
-		return normalize(3.f * a3 * (dt * dt) + 2.f * a2 * dt + a1);
+		return 3.f * a3 * (dt * dt) + 2.f * a2 * dt + a1;
 	}
 
 	/**
@@ -396,7 +397,7 @@ private:
 	 */
 	vec3 wHermiteNormal(vec3 p0, vec3 v0, float t0, vec3 p1, vec3 v1, float t1, float t) {
 		vec3 tangent = wHermiteVelocity(p0, v0, t0, p1, v1, t1, t);
-		return vec3(-tangent.y, tangent.x, tangent.z);
+		return normalize(vec3(-tangent.y, tangent.x, tangent.z));
 	}
 
 	/**
@@ -481,7 +482,6 @@ public:
 		for (int phi = 0; phi < resolution; ++phi) {
 			float actualPhi = (float)phi * multiplier;
 			// printf("phi: %d\nactualPhi: %lf\n", phi, actualPhi);
-			// vec3 mPoint = vec3(wRadius * cos(inRadians(actualPhi)), wRadius * sin(inRadians(actualPhi)), 1.f);
 			vec3 mPoint = vec3(wRadius * cos(inRadians(actualPhi)), wRadius * sin(inRadians(actualPhi)), 1.f);
 			// printf("mPoint: (%lf, %lf, %lf)\n", mPoint.x, mPoint.y, mPoint.z);
 			mCirclePoints.push_back(mPoint);	// fillhez
@@ -514,13 +514,13 @@ public:
 			return;
 		}
 
-		printf("Wheel started moving.\n");
+		// printf("Wheel started moving.\n");
 		state = WheelState::MOVING;
 	}
 
 	/**
 	 * Mozgatja a kereket. Itt van a fizikai szimuláció implementálva.
-	 * @param t Idő paraméter
+	 * @param dt Idő paraméter
 	 */
 	void move(float dt) {
 		if (state != WheelState::MOVING && state != WheelState::FALLING) {
@@ -537,17 +537,24 @@ public:
 		vec3 wV_s = spline->wVelocity(tau);		// spline sebesség vektor
 		vec3 wR_s = spline->wR(tau);			// spline és kerék érintkezési pontja
 
+		// printf("wCenter before: (%lf, %lf, %lf)\n", wCenter.x, wCenter.y, wCenter.z);
+		// printf("wR_s: (%lf, %lf, %lf)\n", wR_s.x, wR_s.y, wR_s.z);
+		// printf("wV_s: (%lf, %lf, %lf)\n", wV_s.x, wV_s.y, wV_s.z);
+		
 		wCenter = wR_s + wN_s * wRadius;		// kerék pozíció frissítése
-
+		// printf("wCenter after: (%lf, %lf, %lf)\n", wCenter.x, wCenter.y, wCenter.z);
+		
 		// kényszer erő kiszámítása
 		float wV_sLen = length(wV_s);
-		float wNormalGravity = dot(wG, wN_s); 	// gravitásiós gyorsulás normálvektor irányú komponense
+		float wNormalGravity = dot(wG, wN_s); 	// gravitációs gyorsulás normálvektor irányú komponense
 		float wKappa = dot(wA_s, wN_s) / (wV_sLen * wV_sLen);							// görbület
-		vec3 wK = m * ((wNormalGravity + (wV_sLen * wV_sLen * wNormalGravity)) * wN_s); // kényszererő
+		// vec3 wK = m * ((wNormalGravity + (wV_sLen * wV_sLen * wNormalGravity)) * wN_s); // kényszererő
+		float wVelocity = sqrtf((2 * length(wG) * (spline->wR(0.f).y - wR_s.y)) / 2);
+		vec3 wK = m * (wNormalGravity * wN_s + (wVelocity * wVelocity) * wKappa);
 		float wNormalForce = dot(wK, wN_s); // erő normálvektor irányú komponense
 
 		if (wNormalForce <= 0.0f) {
-			state = WheelState::IDLE; // kerék megállítása
+			state = WheelState::FALLING; // kerék megállítása
 		}
 
 		// forgó mozgás
@@ -557,17 +564,13 @@ public:
 		float radBeta = wTorque / wInertia; 						// szöggyorsulás
 		radOmega = radOmega + radBeta * dt; 						// szögsebesség frissítése
 		radAlpha = radAlpha + (radOmega * dt) + (0.5f * radBeta * (dt * dt)); // elfordulási szög frissítése
-
-		// sebesség vektor
-		vec3 wVelocity = wV_s * (radOmega * wRadius);
 		
 		// görbe paraméter
-		float dTau = length((wVelocity * dt) / length(wV_s));
+		float dTau = wVelocity * dt / length(wV_s);
 		tau += dTau; // tau frissítése
 
-		printf("dTau: %lf\n", dTau);
-		printf("wVelocity: (%lf, %lf, %lf)\n", wVelocity.x, wVelocity.y, wVelocity.z);
-		printf("wCenter: (%lf, %lf, %lf)\n", wCenter.x, wCenter.y, wCenter.z);
+		// printf("dTau: %lf\n", dTau);
+		// printf("wCenter: (%lf, %lf, %lf)\n", wCenter.x, wCenter.y, wCenter.z);
 	}
 
 	/**
@@ -713,10 +716,10 @@ public:
 		glClear(GL_COLOR_BUFFER_BIT);
 		glViewport(0, 0, winWidth, winHeight);
 
-		spline->sync();
-		spline->draw(gpuProgram, MVP);
 		wheel->sync();
 		wheel->draw(gpuProgram, MVP);
+		spline->sync();
+		spline->draw(gpuProgram, MVP);
 	}
 
 	void onMousePressed(MouseButton but, int pX, int pY) override {
@@ -734,9 +737,6 @@ public:
 		// World space point
 		vec4 wPoint = invMVP * vec4(cPoint.x, cPoint.y, 1.0f, 1.0f);
 		spline->addControlPoint(vec3(wPoint.x, wPoint.y, wPoint.z));
-		
-		// Clip space point again
-		// vec4 cPointAgain = MVP * wPoint;
 		
 		if (spline->controlPointsCount() == 2) {
 			wheel->reset();
@@ -765,7 +765,6 @@ public:
 		}
 
 		printf("start: %lf, end: %lf\n", startTime, endTime);
-		// getchar();
 
 		float dt = 0.01f;
 		for (float t = startTime; t < endTime; t += dt) {
