@@ -455,7 +455,6 @@ public:
 	Wheel(Spline *spline) {
 		// fizika
 		wCenter = vec3(NAN);
-		wVelocity = vec3(0.f, 0.f, 0.f);
 		wRadius = 1.0;
 		radAlpha = 0.f;
 		radOmega = 0.f;
@@ -504,7 +503,6 @@ public:
 		vec3 wSplineR = spline->wR(startT);
 		vec3 wSplineNormal = spline->wNormal(startT);
 		wCenter = wSplineR + wSplineNormal * wRadius;
-		wVelocity = vec3(0.f, 0.f, 0.f);
 		state = WheelState::IDLE;
 	}
 
@@ -529,41 +527,43 @@ public:
 			return;
 		}
 
-		printf("dt: %lf\n", dt);
+		// printf("dt: %lf\n", dt);
 
-		float m = 10.f; 						// kerék tömege
-		vec3 wG = vec3(0.f, 4.f, 0.f);			// gravitációs gyorsulás
+		// állandók és pálya paraméterek
+		float m = 1.f; 						// kerék tömege
+		vec3 wG = vec3(0.f, 40.f, 0.f);			// gravitációs gyorsulás
 		vec3 wA_s = spline->wAcceleration(tau);	// spline gyorsulás vektor
 		vec3 wN_s = spline->wNormal(tau);		// spline normál vektor
 		vec3 wV_s = spline->wVelocity(tau);		// spline sebesség vektor
 		vec3 wR_s = spline->wR(tau);			// spline és kerék érintkezési pontja
 
+		wCenter = wR_s + wN_s * wRadius;		// kerék pozíció frissítése
+
+		// kényszer erő kiszámítása
 		float wV_sLen = length(wV_s);
-		vec3 wKappa = (wA_s * wN_s) / (wV_sLen * wV_sLen);			// görbület
-		vec3 wK = m * ((wG * wN_s) + ((wV_s * wV_s) * wKappa));		// kényszererő
+		float wNormalGravity = dot(wG, wN_s); 	// gravitásiós gyorsulás normálvektor irányú komponense
+		float wKappa = dot(wA_s, wN_s) / (wV_sLen * wV_sLen);							// görbület
+		vec3 wK = m * ((wNormalGravity + (wV_sLen * wV_sLen * wNormalGravity)) * wN_s); // kényszererő
+		float wNormalForce = dot(wK, wN_s); // erő normálvektor irányú komponense
 
-		float I = m * wRadius * wRadius;  						// tehetetlenségi nyomaték
-		float torque = wCenter.x * wK.y - wCenter.y * wK.x;     // forgatónyomaték
-		float radBeta = torque / I;								// szöggyorsulás
-		radAlpha = radAlpha + radBeta * dt;						// elfordulási szög
-		radOmega = radAlpha * dt + 0.5f * radBeta * dt * dt;	// szögsebesség
+		if (wNormalForce <= 0.0f) {
+			state = WheelState::IDLE; // kerék megállítása
+		}
 
-		vec3 wUnsquaredV = (2.f * wG * (spline->wR(0.f).y - wR_s.y)) / (1.5f);
-		wVelocity = vec3(sqrtf(wUnsquaredV.x), sqrtf(wUnsquaredV.y), sqrtf(wUnsquaredV.z));
-		wCenter = wR_s + wN_s * wRadius;
+		// forgó mozgás
+		float wInertia = m * (wRadius * wRadius); 					// tehetetlenségi nyomaték (PHI)
+		vec3 wLeverArm = wCenter - wR_s; 							// erőkar
+		float wTorque = wLeverArm.x * wK.y - wLeverArm.y * wK.x; 	// forgatónyomaték
+		float radBeta = wTorque / wInertia; 						// szöggyorsulás
+		radOmega = radOmega + radBeta * dt; 						// szögsebesség frissítése
+		radAlpha = radAlpha + (radOmega * dt) + (0.5f * radBeta * (dt * dt)); // elfordulási szög frissítése
+
+		// sebesség vektor
+		vec3 wVelocity = wV_s * (radOmega * wRadius);
 		
+		// görbe paraméter
 		float dTau = length((wVelocity * dt) / length(wV_s));
-		tau += dTau;
-		
-
-		// wCenter = wR_s + wN_s * wRadius;
-
-		
-
-		// vec3 wA_w = wG + (wK * wN_s) / (m);							// kerék gyorsulás vektor
-		// wVelocity = wVelocity + wA_w * dt;							// kerék sebesség vektor
-		// wCenter = wCenter + wVelocity * dt + 0.5f * wA_w * (dt * dt);	// kerék pozíció	
-		// tau = tau + (length(wVelocity) * dt) / wV_sLen;
+		tau += dTau; // tau frissítése
 
 		printf("dTau: %lf\n", dTau);
 		printf("wVelocity: (%lf, %lf, %lf)\n", wVelocity.x, wVelocity.y, wVelocity.z);
@@ -634,7 +634,6 @@ public:
 private:
 	// Fizikai jellemzők
 	vec3 wCenter;		// pozíció
-	vec3 wVelocity;		// sebesség
 	float wRadius;		// sugár
 	float radAlpha;		// elfordulási szög
 	float radOmega;		// szögsebesség
