@@ -4,9 +4,6 @@
 #include "../inc/framework.h"
 #include <math.h>
 
-// using namespace::glm;
-// using namespace::std;
-
 // cs�cspont �rnyal�
 const char * vertSource = R"(
 	#version 330				
@@ -525,10 +522,9 @@ public:
 		
 		// kényszer erő kiszámítása
 		float wV_sLen = length(wV_s);
-		float wNormalGravity = dot(wG, wN_s); 	// gravitációs gyorsulás normálvektor irányú komponense
 		float wKappa = dot(wA_s, wN_s) / (wV_sLen * wV_sLen);							// görbület
-		float wVelocity = sqrtf((2 * length(wG) * (spline->wR(0.f).y - wR_s.y)) / 2);
-		float wK = m * (dot(wG, wN_s) + (wVelocity * wVelocity) * wKappa);
+		float wVelocity = sqrtf((2 * length(wG) * (spline->wR(0.f).y - wR_s.y)) / 2);	// sebesség
+		float wK = m * (dot(wG, wN_s) + (wVelocity * wVelocity) * wKappa);				// kényszererő
 
 		if (wK <= 0.0f) {
 			state = WheelState::FALLING;
@@ -748,7 +744,7 @@ public:
 		float dt = 0.01f;
 		for (float t = startTime; t < endTime; t += dt) {
 			float Dt = fmin(dt, endTime - t);
-			wheel->move(dt);
+			wheel->move(Dt);
 		}
 		
 		refreshScreen();
