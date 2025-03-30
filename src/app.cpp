@@ -123,11 +123,6 @@ public:
 	void addControlPoint(vec3 wP) {
 		wControlPoints.push_back(wP);
 		knotValues.push_back(currentKnotValue++); // Uniform paraméterezés szerint automatikusan növeli 1-el 0-tól kezdve a csomópontértékeket.
-
-		printf("Control points and knot values:\n");
-		for (unsigned int i = 0; i < wControlPoints.size(); ++i) {
-			printf("\tWorld space: (%lf, %lf): %lf\n", wControlPoints.at(i).x, wControlPoints.at(i).y, knotValues.at(i));
-		}
 	}
 	
 	/**
@@ -264,13 +259,9 @@ public:
 			int resolution = 100;
 
 			float incrementation = knotValues.back() / resolution;
-			// float incrementation = knotValues.back() / (knotValues.size() * resolution);
-			// printf("incrementation: %lf\n", incrementation);
 
 			for (float t = 0; t <= knotValues.back(); t += incrementation) {
 				vec3 wCurvePoint = wR(t);
-				// printf("curve point added: (%lf, %lf, %lf)\n", wCurvePoint.x, wCurvePoint.y, wCurvePoint.z);
-
 				wCurvePoints.push_back(wCurvePoint);
 			}
 		}
@@ -279,13 +270,11 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, wCurvePoints.size() * sizeof(vec3), wCurvePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		// printf("Calculated and synced curve points.\n");
 
 		bindControlPoints();
 		glBufferData(GL_ARRAY_BUFFER, wControlPoints.size() * sizeof(vec3), wControlPoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		// printf("Synced control points.\n");
 	}
 
 	/**
@@ -300,7 +289,6 @@ public:
 		gpuProgram->setUniform(vec3(1.0f, 1.0f, 0.0f), "color"); // yellow
 		gpuProgram->setUniform(MVP, "MVP");
 		glDrawArrays(GL_LINE_STRIP, 0, wCurvePoints.size());
-		// printf("Drawn curve.\n");
 		
 		// Kontroll pontok
 		bindControlPoints();		
@@ -308,7 +296,6 @@ public:
 		gpuProgram->setUniform(vec3(1.0f, 0.0f, 0.0f), "color"); // red
 		gpuProgram->setUniform(MVP, "MVP");		
 		glDrawArrays(GL_POINTS, 0, wControlPoints.size());
-		// printf("Drawn control points.\n");
 	}
 
 private:
@@ -481,9 +468,7 @@ public:
 		float multiplier = 360 / resolution;
 		for (int phi = 0; phi < resolution; ++phi) {
 			float actualPhi = (float)phi * multiplier;
-			// printf("phi: %d\nactualPhi: %lf\n", phi, actualPhi);
 			vec3 mPoint = vec3(wRadius * cos(inRadians(actualPhi)), wRadius * sin(inRadians(actualPhi)), 1.f);
-			// printf("mPoint: (%lf, %lf, %lf)\n", mPoint.x, mPoint.y, mPoint.z);
 			mCirclePoints.push_back(mPoint);	// fillhez
 			mOutlinePoints.push_back(mPoint);	// körvonalhoz
 		}
@@ -516,7 +501,6 @@ public:
 			return;
 		}
 
-		// printf("Wheel started moving.\n");
 		state = WheelState::MOVING;
 	}
 
@@ -529,32 +513,24 @@ public:
 			return;
 		}
 
-		// printf("dt: %lf\n", dt);
-
 		// állandók és pálya paraméterek
-		float m = 1.f; 						// kerék tömege
+		float m = 1.f; 							// kerék tömege
 		vec3 wG = vec3(0.f, 40.f, 0.f);			// gravitációs gyorsulás
 		vec3 wA_s = spline->wAcceleration(tau);	// spline gyorsulás vektor
 		vec3 wN_s = spline->wNormal(tau);		// spline normál vektor
 		vec3 wV_s = spline->wVelocity(tau);		// spline sebesség vektor
 		vec3 wR_s = spline->wR(tau);			// spline és kerék érintkezési pontja
-
-		// printf("wCenter before: (%lf, %lf, %lf)\n", wCenter.x, wCenter.y, wCenter.z);
-		// printf("wR_s: (%lf, %lf, %lf)\n", wR_s.x, wR_s.y, wR_s.z);
-		// printf("wV_s: (%lf, %lf, %lf)\n", wV_s.x, wV_s.y, wV_s.z);
 		
 		wCenter = wR_s + wN_s * wRadius;		// kerék pozíció frissítése
-		// printf("wCenter after: (%lf, %lf, %lf)\n", wCenter.x, wCenter.y, wCenter.z);
 		
 		// kényszer erő kiszámítása
 		float wV_sLen = length(wV_s);
 		float wNormalGravity = dot(wG, wN_s); 	// gravitációs gyorsulás normálvektor irányú komponense
 		float wKappa = dot(wA_s, wN_s) / (wV_sLen * wV_sLen);							// görbület
 		float wVelocity = sqrtf((2 * length(wG) * (spline->wR(0.f).y - wR_s.y)) / 2);
-		vec3 wK = m * (wNormalGravity * wN_s + (wVelocity * wVelocity) * wKappa);
-		float wNormalForce = dot(wK, wN_s); // erő normálvektor irányú komponense
+		float wK = m * (dot(wG, wN_s) + (wVelocity * wVelocity) * wKappa);
 
-		if (wNormalForce <= 0.0f) {
+		if (wK <= 0.0f) {
 			state = WheelState::FALLING;
 			reset();
 		}
@@ -562,7 +538,7 @@ public:
 		// forgó mozgás
 		float wInertia = m * (wRadius * wRadius); 					// tehetetlenségi nyomaték (PHI)
 		vec3 wLeverArm = wCenter - wR_s; 							// erőkar
-		float wTorque = wLeverArm.x * wK.y - wLeverArm.y * wK.x; 	// forgatónyomaték
+		float wTorque = wK * length(wLeverArm);		 				// forgatónyomaték
 		float radBeta = wTorque / wInertia; 						// szöggyorsulás
 		radOmega = radOmega + radBeta * dt; 						// szögsebesség frissítése
 		radAlpha = radAlpha + (radOmega * dt) + (0.5f * radBeta * (dt * dt)); // elfordulási szög frissítése
@@ -571,11 +547,9 @@ public:
 		float dTau = wVelocity * dt / length(wV_s);
 		tau += dTau; // tau frissítése
 
-		// if (tau >= spline->controlPointsCount() - 1) {
-		// 	reset();
-		// }
-		// printf("dTau: %lf\n", dTau);
-		// printf("wCenter: (%lf, %lf, %lf)\n", wCenter.x, wCenter.y, wCenter.z);
+		if (tau >= spline->controlPointsCount() - 1) {
+			reset();
+		}
 	}
 
 	/**
@@ -593,19 +567,16 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, mCirclePoints.size() * sizeof(vec3), mCirclePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		// printf("Synced circle fill points.\n");
 
 		bindOutlines();
 		glBufferData(GL_ARRAY_BUFFER, mOutlinePoints.size() * sizeof(vec3), mOutlinePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		// printf("Synced circle outline points.\n");
 
 		bindSpokes();
 		glBufferData(GL_ARRAY_BUFFER, mSpokePoints.size() * sizeof(vec3), mSpokePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		// printf("Synced circle spoke points.\n");
 	}
 
 	/**
@@ -627,16 +598,13 @@ public:
 		gpuProgram->setUniform(vec3(0.0f, 0.0f, 1.0f), "color"); // blue
 		bindFill();
 		glDrawArrays(GL_TRIANGLE_FAN, 0, mCirclePoints.size());
-		// printf("Drawn wheel fill.\n");
 		
 		gpuProgram->setUniform(vec3(1.0f, 1.0f, 1.0f), "color"); // white
 		bindOutlines();
 		glDrawArrays(GL_LINE_LOOP, 0, mOutlinePoints.size());
-		// printf("Drawn wheel outline.\n");
 
 		bindSpokes();
 		glDrawArrays(GL_LINES, 0, mSpokePoints.size());
-		// printf("Drawn wheel spokes.\n");
 	}
 
 private:
@@ -679,11 +647,19 @@ private:
 		glBindBuffer(GL_ARRAY_BUFFER, fillVBO);
 	}
 
+	/**
+	 * Bindolja a küllőket
+	 */
 	void bindSpokes() {
 		glBindVertexArray(spokesVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, spokesVBO);
 	}
 
+	/**
+	 * Fokot radiánba vált.
+	 * @param degrees Fokok
+	 * @return float Fokok radiánban
+	 */
 	float inRadians(float degrees) {
 		return degrees * (M_PI / 180.f);
 	}
@@ -691,7 +667,7 @@ private:
 
 const int winWidth = 600, winHeight = 600;
 
-class GreenTriangleApp : public glApp {
+class SpileAndWheelApp : public glApp {
 	GPUProgram* gpuProgram;
 	Camera* camera;
 	Spline* spline;
@@ -700,7 +676,7 @@ class GreenTriangleApp : public glApp {
 	mat4 invMVP;
 	float time;
 public:
-	GreenTriangleApp() : glApp("Lab2") { }
+	SpileAndWheelApp() : glApp("Lab2") { }
 
 	void onInitialization() override {
 		gpuProgram = new GPUProgram(vertSource, fragSource);		
@@ -769,8 +745,6 @@ public:
 			return;
 		}
 
-		// printf("start: %lf, end: %lf\n", startTime, endTime);
-
 		float dt = 0.01f;
 		for (float t = startTime; t < endTime; t += dt) {
 			float Dt = fmin(dt, endTime - t);
@@ -781,5 +755,5 @@ public:
 	}
 };
 
-GreenTriangleApp app;
+SpileAndWheelApp app;
 
