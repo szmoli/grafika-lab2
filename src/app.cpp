@@ -279,13 +279,13 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, wCurvePoints.size() * sizeof(vec3), wCurvePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		printf("Calculated and synced curve points.\n");
+		// printf("Calculated and synced curve points.\n");
 
 		bindControlPoints();
 		glBufferData(GL_ARRAY_BUFFER, wControlPoints.size() * sizeof(vec3), wControlPoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		printf("Synced control points.\n");
+		// printf("Synced control points.\n");
 	}
 
 	/**
@@ -300,7 +300,7 @@ public:
 		gpuProgram->setUniform(vec3(1.0f, 1.0f, 0.0f), "color"); // yellow
 		gpuProgram->setUniform(MVP, "MVP");
 		glDrawArrays(GL_LINE_STRIP, 0, wCurvePoints.size());
-		printf("Drawn curve.\n");
+		// printf("Drawn curve.\n");
 		
 		// Kontroll pontok
 		bindControlPoints();		
@@ -308,7 +308,7 @@ public:
 		gpuProgram->setUniform(vec3(1.0f, 0.0f, 0.0f), "color"); // red
 		gpuProgram->setUniform(MVP, "MVP");		
 		glDrawArrays(GL_POINTS, 0, wControlPoints.size());
-		printf("Drawn control points.\n");
+		// printf("Drawn control points.\n");
 	}
 
 private:
@@ -499,9 +499,11 @@ public:
 	 * A kereket a kezdő pozícióba helyezi, amit a spline alapján számít ki.
 	 */
 	void reset() {
-		float startT = 0.01f;
-		vec3 wSplineR = spline->wR(startT);
-		vec3 wSplineNormal = spline->wNormal(startT);
+		tau = 0.001f;
+		radAlpha = 0.f;
+		radOmega = 0.f;
+		vec3 wSplineR = spline->wR(tau);
+		vec3 wSplineNormal = spline->wNormal(tau);
 		wCenter = wSplineR + wSplineNormal * wRadius;
 		state = WheelState::IDLE;
 	}
@@ -548,13 +550,13 @@ public:
 		float wV_sLen = length(wV_s);
 		float wNormalGravity = dot(wG, wN_s); 	// gravitációs gyorsulás normálvektor irányú komponense
 		float wKappa = dot(wA_s, wN_s) / (wV_sLen * wV_sLen);							// görbület
-		// vec3 wK = m * ((wNormalGravity + (wV_sLen * wV_sLen * wNormalGravity)) * wN_s); // kényszererő
 		float wVelocity = sqrtf((2 * length(wG) * (spline->wR(0.f).y - wR_s.y)) / 2);
 		vec3 wK = m * (wNormalGravity * wN_s + (wVelocity * wVelocity) * wKappa);
 		float wNormalForce = dot(wK, wN_s); // erő normálvektor irányú komponense
 
 		if (wNormalForce <= 0.0f) {
-			state = WheelState::FALLING; // kerék megállítása
+			state = WheelState::FALLING;
+			reset();
 		}
 
 		// forgó mozgás
@@ -569,6 +571,9 @@ public:
 		float dTau = wVelocity * dt / length(wV_s);
 		tau += dTau; // tau frissítése
 
+		// if (tau >= spline->controlPointsCount() - 1) {
+		// 	reset();
+		// }
 		// printf("dTau: %lf\n", dTau);
 		// printf("wCenter: (%lf, %lf, %lf)\n", wCenter.x, wCenter.y, wCenter.z);
 	}
@@ -588,19 +593,19 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, mCirclePoints.size() * sizeof(vec3), mCirclePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		printf("Synced circle fill points.\n");
+		// printf("Synced circle fill points.\n");
 
 		bindOutlines();
 		glBufferData(GL_ARRAY_BUFFER, mOutlinePoints.size() * sizeof(vec3), mOutlinePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		printf("Synced circle outline points.\n");
+		// printf("Synced circle outline points.\n");
 
 		bindSpokes();
 		glBufferData(GL_ARRAY_BUFFER, mSpokePoints.size() * sizeof(vec3), mSpokePoints.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-		printf("Synced circle spoke points.\n");
+		// printf("Synced circle spoke points.\n");
 	}
 
 	/**
@@ -622,16 +627,16 @@ public:
 		gpuProgram->setUniform(vec3(0.0f, 0.0f, 1.0f), "color"); // blue
 		bindFill();
 		glDrawArrays(GL_TRIANGLE_FAN, 0, mCirclePoints.size());
-		printf("Drawn wheel fill.\n");
+		// printf("Drawn wheel fill.\n");
 		
 		gpuProgram->setUniform(vec3(1.0f, 1.0f, 1.0f), "color"); // white
 		bindOutlines();
 		glDrawArrays(GL_LINE_LOOP, 0, mOutlinePoints.size());
-		printf("Drawn wheel outline.\n");
+		// printf("Drawn wheel outline.\n");
 
 		bindSpokes();
 		glDrawArrays(GL_LINES, 0, mSpokePoints.size());
-		printf("Drawn wheel spokes.\n");
+		// printf("Drawn wheel spokes.\n");
 	}
 
 private:
@@ -764,7 +769,7 @@ public:
 			return;
 		}
 
-		printf("start: %lf, end: %lf\n", startTime, endTime);
+		// printf("start: %lf, end: %lf\n", startTime, endTime);
 
 		float dt = 0.01f;
 		for (float t = startTime; t < endTime; t += dt) {
